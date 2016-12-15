@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+option java_package = "io.grpc.status.proto";
+
+package grpc;
+
+message ServiceList {
+  option no_standard_descriptor_accessor = true;
+
+  repeated group Service = 1 {
+    option no_standard_descriptor_accessor = true;
+
+    required string name = 2;
+    // required .gRPC_ServiceDescriptor descriptor= 3;
+  }
+}
+
+message TypeRequest {
+  optional string type = 1;
+}
+
+message SymbolRequest {
+  optional string symbol = 1;
+}
+
+message TypeIdRequest {
+  required int32 type_id = 1;
+}
+
+message FileNameRequest {
+  optional string filename= 1;
+}
+
+message VarzRequest {
+  repeated string var = 1;
+}
+
+message FlagsRequest {
+  repeated string flag = 1;
+}
+
+message PerfRequest {
+  enum TYPE {
+    BY_METHOD = 0;
+    BY_SERVER = 1;
+    BY_CLIENT = 2;
+    BACKENDS = 3;
+  }
+  optional TYPE type = 1 [default = BY_METHOD];
+}
+
+message PerfResponseErrorCount {
+  required int32 status = 1;
+  required int64 count = 2;
+}
