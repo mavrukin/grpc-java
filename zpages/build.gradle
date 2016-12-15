@@ -1,0 +1,20 @@
+plugins {
+    id "be.insaneprogramming.gradle.animalsniffer" version "1.4.0"
+}
+
+apply plugin: "idea"
+description = "gRPC: zPages"
+
+dependencies {
+  compile project(":grpc-core")
+  compile project(":grpc-netty")
+  testCompile libraries.truth,
+  project(":grpc-testing")
+}
+
+animalsniffer {
+    signature = "org.codehaus.mojo.signature:java16:+@signature"
+}
+
+javadoc.options.links "https://google.github.io/guava/release/${guavaVersion}/api/docs/"
+
