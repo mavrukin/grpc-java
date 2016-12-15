@@ -57,15 +57,28 @@ public class MethodDescriptor<ReqT, RespT> {
   private final boolean idempotent;
   private final boolean safe;
 
-  private final AtomicReferenceArray<Object> rawMethodNames =
-      new AtomicReferenceArray<Object>(InternalKnownTransport.values().length);
+  // Must be set to InternalKnownTransport.values().length
+  // Not referenced to break the dependency.
+  private final AtomicReferenceArray<Object> rawMethodNames = new AtomicReferenceArray<Object>(1);
 
-  final Object getRawMethodName(InternalKnownTransport t) {
-    return rawMethodNames.get(t.ordinal());
+  /**
+   * Gets the cached "raw" method name for this Method Descriptor.  The raw name is transport
+   * specific, and should be set using {@link #setRawMethodName} by the transport.
+   *
+   * @param transportOrdinal the unique ID of the transport, given by
+   *        {@link InternalKnownTransport#ordinal}.
+   * @return a transport specific representation of the method name.
+   */
+  final Object getRawMethodName(int transportOrdinal) {
+    return rawMethodNames.get(transportOrdinal);
   }
 
-  final void setRawMethodName(InternalKnownTransport t, Object o) {
-    rawMethodNames.lazySet(t.ordinal(), o);
+  /**
+   * Safely, but weakly, sets the raw method name for this Method Descriptor.  This should only be
+   * called by the transport.  See {@link #getRawMethodName} for more detail.
+   */
+  final void setRawMethodName(int transportOrdinal, Object o) {
+    rawMethodNames.lazySet(transportOrdinal, o);
   }
 
   /**

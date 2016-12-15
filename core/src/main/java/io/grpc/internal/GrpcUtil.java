@@ -41,6 +41,8 @@ import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
+import io.grpc.LoadBalancer2.PickResult;
+import io.grpc.LoadBalancer2.Subchannel;
 import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.internal.SharedResourceHolder.Resource;
@@ -148,9 +150,9 @@ public final class GrpcUtil {
    */
   public static final int DEFAULT_MAX_HEADER_LIST_SIZE = 8192;
 
-  public static final Splitter ACCEPT_ENCODING_SPLITER = Splitter.on(',').trimResults();
+  public static final Splitter ACCEPT_ENCODING_SPLITTER = Splitter.on(',').trimResults();
 
-  private static final String IMPLEMENTATION_VERION = getImplementationVersion();
+  private static final String IMPLEMENTATION_VERSION = getImplementationVersion();
 
   /**
    * The default delay in nanos before we send a keepalive.
@@ -336,7 +338,7 @@ public final class GrpcUtil {
     }
     builder.append("grpc-java-");
     builder.append(transportName);
-    builder.append(IMPLEMENTATION_VERION);
+    builder.append(IMPLEMENTATION_VERSION);
     return builder.toString();
   }
 
@@ -536,10 +538,24 @@ public final class GrpcUtil {
   }
 
   /**
-   * The canonical implementation of {@link WithLogId#getLogId}.
+   * Returns a transport out of a PickResult, or {@code null} if the result is "buffer".
    */
-  public static String getLogId(WithLogId subject) {
-    return subject.getClass().getSimpleName() + "@" + Integer.toHexString(subject.hashCode());
+  @Nullable
+  static ClientTransport getTransportFromPickResult(PickResult result, boolean isWaitForReady) {
+    ClientTransport transport;
+    Subchannel subchannel = result.getSubchannel();
+    if (subchannel != null) {
+      transport = ((SubchannelImpl) subchannel).obtainActiveTransport();
+    } else {
+      transport = null;
+    }
+    if (transport != null) {
+      return transport;
+    }
+    if (!result.getStatus().isOk() && !isWaitForReady) {
+      return new FailingClientTransport(result.getStatus());
+    }
+    return null;
   }
 
   private GrpcUtil() {}

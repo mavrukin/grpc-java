@@ -78,6 +78,7 @@ public class ContextTest {
   private static final Context.Key<String> FOOD = Context.keyWithDefault("food", "lasagna");
   private static final Context.Key<String> COLOR = Context.key("color");
   private static final Context.Key<Object> FAVORITE = Context.key("favorite");
+  private static final Context.Key<Integer> LUCKY = Context.key("lucky");
 
   private Context listenerNotifedContext;
   private CountDownLatch deadlineLatch = new CountDownLatch(1);
@@ -109,21 +110,19 @@ public class ContextTest {
   }
 
   @Test
-  public void rootIsInitialContext() {
-    assertNotNull(Context.ROOT);
-    assertTrue(Context.ROOT.isCurrent());
-  }
-
-  @Test
-  public void rootIsAlwaysBound() throws Exception {
-    final SettableFuture<Boolean> rootIsBound = SettableFuture.create();
+  public void defaultContext() throws Exception {
+    final SettableFuture<Context> contextOfNewThread = SettableFuture.create();
+    Context contextOfThisThread = Context.ROOT.withValue(PET, "dog");
+    contextOfThisThread.attach();
     new Thread(new Runnable() {
       @Override
       public void run() {
-        rootIsBound.set(Context.current() == Context.ROOT);
+        contextOfNewThread.set(Context.current());
       }
-    }).start();
-    assertTrue(rootIsBound.get(5, TimeUnit.SECONDS));
+      }).start();
+    assertNotNull(contextOfNewThread.get(5, TimeUnit.SECONDS));
+    assertNotSame(contextOfThisThread, contextOfNewThread.get());
+    assertSame(contextOfThisThread, Context.current());
   }
 
   @Test
@@ -186,7 +185,7 @@ public class ContextTest {
       public void close() throws SecurityException {
       }
     };
-    Logger logger = Logger.getLogger(Context.class.getName());
+    Logger logger = Logger.getLogger(Context.storage().getClass().getName());
     try {
       logger.addHandler(handler);
       Context initial = Context.current();
@@ -244,6 +243,23 @@ public class ContextTest {
     assertEquals("cheese", FOOD.get());
     assertEquals("blue", COLOR.get());
     assertEquals(fav, FAVORITE.get());
+
+    base.attach();
+  }
+
+  @Test
+  public void withValuesFour() {
+    Object fav = new Object();
+    Context base = Context.current().withValues(PET, "dog", COLOR, "blue");
+    Context child = base.withValues(PET, "cat", FOOD, "cheese", FAVORITE, fav, LUCKY, 7);
+
+    child.attach();
+
+    assertEquals("cat", PET.get());
+    assertEquals("cheese", FOOD.get());
+    assertEquals("blue", COLOR.get());
+    assertEquals(fav, FAVORITE.get());
+    assertEquals(7, (int) LUCKY.get());
 
     base.attach();
   }

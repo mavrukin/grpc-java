@@ -52,6 +52,7 @@ import io.grpc.HandlerRegistry;
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
 import io.grpc.ServerMethodDefinition;
+import io.grpc.ServerServiceDefinition;
 import io.grpc.ServerTransportFilter;
 import io.grpc.Status;
 
@@ -83,9 +84,10 @@ import javax.annotation.concurrent.GuardedBy;
  * <p>Starting the server starts the underlying transport for servicing requests. Stopping the
  * server stops servicing new requests and waits for all connections to terminate.
  */
-public final class ServerImpl extends io.grpc.Server {
+public final class ServerImpl extends io.grpc.Server implements WithLogId {
   private static final ServerStreamListener NOOP_LISTENER = new NoopListener();
 
+  private final LogId logId = LogId.allocate(getClass().getName());
   /** Executor for application processing. Safe to read after {@link #start()}. */
   private Executor executor;
   /** Safe to read after {@link #start()}. */
@@ -173,6 +175,22 @@ public final class ServerImpl extends io.grpc.Server {
       checkState(started, "Not started");
       checkState(!terminated, "Already terminated");
       return transportServer.getPort();
+    }
+  }
+
+  @Override
+  public List<ServerServiceDefinition> getServices() {
+    List<ServerServiceDefinition> fallbackServices = fallbackRegistry.getServices();
+    if (fallbackServices.isEmpty()) {
+      return registry.getServices();
+    } else {
+      List<ServerServiceDefinition> registryServices = registry.getServices();
+      int servicesCount = registryServices.size() + fallbackServices.size();
+      List<ServerServiceDefinition> services =
+          new ArrayList<ServerServiceDefinition>(servicesCount);
+      services.addAll(registryServices);
+      services.addAll(fallbackServices);
+      return Collections.unmodifiableList(services);
     }
   }
 
@@ -464,6 +482,11 @@ public final class ServerImpl extends io.grpc.Server {
       }
       return call.newServerStreamListener(listener);
     }
+  }
+
+  @Override
+  public LogId getLogId() {
+    return logId;
   }
 
   private static class NoopListener implements ServerStreamListener {

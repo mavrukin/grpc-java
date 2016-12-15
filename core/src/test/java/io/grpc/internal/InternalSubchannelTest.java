@@ -98,25 +98,25 @@ public class InternalSubchannelTest {
   private final InternalSubchannel.Callback mockInternalSubchannelCallback =
       new InternalSubchannel.Callback() {
         @Override
-        public void onTerminated(InternalSubchannel is) {
+        protected void onTerminated(InternalSubchannel is) {
           assertSame(internalSubchannel, is);
           callbackInvokes.add("onTerminated");
         }
 
         @Override
-        public void onStateChange(InternalSubchannel is, ConnectivityStateInfo newState) {
+        protected void onStateChange(InternalSubchannel is, ConnectivityStateInfo newState) {
           assertSame(internalSubchannel, is);
           callbackInvokes.add("onStateChange:" + newState);
         }
 
         @Override
-        public void onInUse(InternalSubchannel is) {
+        protected void onInUse(InternalSubchannel is) {
           assertSame(internalSubchannel, is);
           callbackInvokes.add("onInUse");
         }
 
         @Override
-        public void onNotInUse(InternalSubchannel is) {
+        protected void onNotInUse(InternalSubchannel is) {
           assertSame(internalSubchannel, is);
           callbackInvokes.add("onNotInUse");
         }
@@ -422,7 +422,7 @@ public class InternalSubchannelTest {
     // No scheduled tasks that would ever try to reconnect ...
     assertEquals(0, fakeClock.numPendingTasks());
     assertEquals(0, fakeExecutor.numPendingTasks());
-    
+
     // ... until it's requested.
     internalSubchannel.obtainActiveTransport();
     assertExactCallbackInvokes("onStateChange:CONNECTING");
@@ -434,7 +434,7 @@ public class InternalSubchannelTest {
   public void shutdownWhenReady() throws Exception {
     SocketAddress addr = mock(SocketAddress.class);
     createInternalSubchannel(addr);
-    
+
     internalSubchannel.obtainActiveTransport();
     MockClientTransportInfo transportInfo = transports.poll();
     transportInfo.listener.transportReady();
@@ -528,7 +528,7 @@ public class InternalSubchannelTest {
   public void shutdownNow() throws Exception {
     SocketAddress addr = mock(SocketAddress.class);
     createInternalSubchannel(addr);
-    
+
     internalSubchannel.obtainActiveTransport();
     MockClientTransportInfo t1 = transports.poll();
     t1.listener.transportReady();
@@ -565,8 +565,8 @@ public class InternalSubchannelTest {
   @Test
   public void logId() {
     createInternalSubchannel(mock(SocketAddress.class));
-    assertEquals("InternalSubchannel@" + Integer.toHexString(internalSubchannel.hashCode()),
-        internalSubchannel.getLogId());
+
+    assertNotNull(internalSubchannel.getLogId());
   }
 
   @Test

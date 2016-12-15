@@ -73,7 +73,7 @@ abstract class ForwardingConnectionClientTransport implements ConnectionClientTr
   }
 
   @Override
-  public String getLogId() {
+  public LogId getLogId() {
     return delegate().getLogId();
   }
 
