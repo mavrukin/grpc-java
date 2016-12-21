@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package grpc;
+
+option java_outer_classname = "MessageSetProtos";
+option java_multiple_files = true;
+option java_package = "io.grpc.status.proto";
+
+message MessageSet {
+}

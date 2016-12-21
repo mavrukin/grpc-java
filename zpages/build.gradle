@@ -1,3 +1,12 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath libraries.protobuf_plugin
+    }
+}
+
 plugins {
     id "be.insaneprogramming.gradle.animalsniffer" version "1.4.0"
 }
@@ -8,13 +17,23 @@ description = "gRPC: zPages"
 dependencies {
   compile project(":grpc-core")
   compile project(":grpc-netty")
+  compile project(":grpc-protobuf")
+  compile project(":grpc-stub")
   testCompile libraries.truth,
   project(":grpc-testing")
 }
 
+configureProtoCompilation()
+
+// Configure the animal sniffer plugin
 animalsniffer {
     signature = "org.codehaus.mojo.signature:java16:+@signature"
 }
 
-javadoc.options.links "https://google.github.io/guava/release/${guavaVersion}/api/docs/"
-
+// Let intellij projects refer to generated code
+idea {
+    module {
+        sourceDirs += file("${projectDir}/src/generated/main/java");
+        sourceDirs += file("${projectDir}/src/generated/main/grpc");
+    }
+}

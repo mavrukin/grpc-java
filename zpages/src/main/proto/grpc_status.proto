@@ -1,5 +1,8 @@
 syntax = "proto3";
 
+import "empty_message.proto";
+import "expvar.proto";
+
 option java_package = "io.grpc.status.proto";
 
 package grpc;
@@ -7,28 +10,28 @@ package grpc;
 message ServiceList {
   option no_standard_descriptor_accessor = true;
 
-  repeated group Service = 1 {
+  message Service {
     option no_standard_descriptor_accessor = true;
 
-    required string name = 2;
-    // required .gRPC_ServiceDescriptor descriptor= 3;
+    string name = 2;
   }
+  repeated Service service = 1;
 }
 
 message TypeRequest {
-  optional string type = 1;
+  string type = 1;
 }
 
 message SymbolRequest {
-  optional string symbol = 1;
+  string symbol = 1;
 }
 
 message TypeIdRequest {
-  required int32 type_id = 1;
+  int32 type_id = 1;
 }
 
 message FileNameRequest {
-  optional string filename= 1;
+  string filename= 1;
 }
 
 message VarzRequest {
@@ -46,10 +49,80 @@ message PerfRequest {
     BY_CLIENT = 2;
     BACKENDS = 3;
   }
-  optional TYPE type = 1 [default = BY_METHOD];
+  TYPE type = 1;
 }
 
 message PerfResponseErrorCount {
-  required int32 status = 1;
-  required int64 count = 2;
+  int32 status = 1;
+  int64 count = 2;
+}
+
+message PerfResponeStats {
+  int64 count = 2;
+  int32 latency = 3;
+  int32 max_latency = 4;
+  float rate = 5;
+  float arg_bytes_rate = 6;
+  float result_bytes_rate = 7;
+  float uncompressed_result_bytes_rate = 8;
+  int64 rpc_errors = 9;
+  int64 app_errors = 10;
+  float server_elapsed_deprecated = 11;
+  int64 retransmissions = 12;
+  int64 duplicates = 13;
+  int64 latency_sum_msec = 14;
+  int64 server_latency_sum_msec = 15;
+  int64 interval_msec = 16;
+  int64 request_bytes_sum = 17;
+  int64 response_bytes_sum = 18;
+  int64 uncompressed_response_bytes_sum = 19;
+  repeated PerfResponseErrorCount error_count = 20;
+  int64 uncompressed_request_bytes_sum = 21;
+  float uncompressed_arg_bytes_rate = 22;
+  int64 count_ipv4 = 23;
+  int64 count_ipv6 = 24;
+  int64 count_other = 25;
+}
+
+message PerfResponseGrowRow {
+  string name = 1;
+  PerfResponeStats minute = 2;
+  PerfResponeStats hour = 3;
+  PerfResponeStats total = 4;
+}
+
+message PerfResponseGroup {
+  string name = 1;
+  PerfResponseGrowRow total = 2;
+  PerfResponseGrowRow row = 3;
+}
+
+message PerfResponseCategory {
+  string name = 1;
+  repeated PerfResponseGroup group = 2;
+}
+
+message LatencyHistogramsRequest {
+  enum TYPE {
+    ALL = 0;
+  }
+  TYPE type = 1;
+}
+
+message FlagRequest {
+
+}
+
+message FlagResponse {
+
+}
+
+service ServerStatus {
+  rpc GetExportedVariables(grpc.EmptyMessage) returns (grpc.EV_KeyValueList) {}
+
+  rpc GetNamedVariables(VarzRequest) returns (grpc.EV_KeyValueList) {}
+
+  rpc GetFlags(FlagRequest) returns (grpc.EV_KeyValueList) {}
+
+  rpc GetServices(grpc.EmptyMessage) returns (ServiceList) {}
 }

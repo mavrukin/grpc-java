@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+import "google/protobuf/any.proto";
+
+package grpc;
+
+option java_package = "io.grpc.status.proto";
+option java_multiple_files = true;
+option java_outer_classname = "EmptyMessageProtos";
+
+import "message_set.proto";
+
+message EmptyMessage {
+  google.protobuf.Any message_set_extension = 4311348;
+};
