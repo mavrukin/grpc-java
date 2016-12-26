@@ -26,3 +26,6 @@ bin
 # Emacs
 *~
 \#*\#
+
+# Generated proto directories
+**/src/generated
