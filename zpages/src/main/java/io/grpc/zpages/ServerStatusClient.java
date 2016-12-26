@@ -31,14 +31,26 @@
 
 package io.grpc.zpages;
 
+import com.google.common.base.Preconditions;
 import io.grpc.ManagedChannel;
 import io.grpc.StatusRuntimeException;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
+import io.grpc.status.proto.SimpleService.BlockForMillisRequest;
+import io.grpc.status.proto.SimpleService.DoNEmptyRequestsRequest;
+import io.grpc.status.proto.SimpleService.DoNEmptyRequestsResponse;
+import io.grpc.status.proto.SimpleService.EchoRequest;
+import io.grpc.status.proto.SimpleService.EchoResponse;
+import io.grpc.status.proto.SimpleService.FailWithProbabilityOrSucceedEchoRequest;
 import io.grpc.status.proto.EmptyMessage;
 import io.grpc.status.proto.Expvar.EV_KeyValueList;
 import io.grpc.status.proto.Expvar.EV_KeyValuePair;
 import io.grpc.status.proto.ServerStatusGrpc;
+import io.grpc.status.proto.ServerStatusGrpc.ServerStatusBlockingStub;
+import io.grpc.status.proto.SimpleGrpc;
+import io.grpc.status.proto.SimpleGrpc.SimpleBlockingStub;
+import io.grpc.status.proto.LessSimpleGrpc;
+import io.grpc.status.proto.LessSimpleGrpc.LessSimpleBlockingStub;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -50,7 +62,9 @@ import java.util.logging.Logger;
 public class ServerStatusClient {
   private static final Logger logger = Logger.getLogger(ServerStatusClient.class.getName());
   private final ManagedChannel managedChannel;
-  private final ServerStatusGrpc.ServerStatusBlockingStub serverStatusStub;
+  private final ServerStatusBlockingStub serverStatusStub;
+  private final SimpleBlockingStub simpleBlockingStub;
+  private final LessSimpleBlockingStub lessSimpleBlockingStub;
 
   /**
    * Constructor for the client.
@@ -68,6 +82,8 @@ public class ServerStatusClient {
         .flowControlWindow(65 * 1024)
         .negotiationType(NegotiationType.PLAINTEXT).build();
     serverStatusStub = ServerStatusGrpc.newBlockingStub(managedChannel);
+    simpleBlockingStub = SimpleGrpc.newBlockingStub(managedChannel);
+    lessSimpleBlockingStub = LessSimpleGrpc.newBlockingStub(managedChannel);
   }
 
   /**
@@ -99,6 +115,68 @@ public class ServerStatusClient {
     }
   }
 
+  public void doSimpleRequests() {
+    logger.info("Doing some simple requests");
+    simpleBlockingStub.noop(EmptyMessage.getDefaultInstance());
+    EchoRequest.Builder echoRequestBuilder = EchoRequest.newBuilder();
+    echoRequestBuilder.setEcho("\t\t**** Hello World\n");
+    echoRequestBuilder.setRepeatEcho(10);
+    EchoRequest echoRequest = echoRequestBuilder.build();
+    EchoResponse echoResponse = simpleBlockingStub.echo(echoRequest);
+    logger.info("Received: " + echoResponse.getEchoResponse());
+
+    FailWithProbabilityOrSucceedEchoRequest.Builder alwaysSuccedRequest = FailWithProbabilityOrSucceedEchoRequest.newBuilder();
+    FailWithProbabilityOrSucceedEchoRequest.Builder alwaysFailRequest = FailWithProbabilityOrSucceedEchoRequest.newBuilder();
+
+    alwaysSuccedRequest.setEchoRequest(echoRequest);
+    alwaysSuccedRequest.setFailProbability(0);
+
+    alwaysFailRequest.setEchoRequest(echoRequest);
+    alwaysFailRequest.setFailProbability(100);
+
+    try {
+      echoResponse = simpleBlockingStub.failPlease(alwaysSuccedRequest.build());
+      logger.info("Received: " + echoResponse.getEchoResponse());
+    } catch (StatusRuntimeException e) {
+      logger.log(Level.SEVERE, "oh, oh...", e);
+    }
+
+    try {
+      echoResponse = simpleBlockingStub.failPlease(alwaysFailRequest.build());
+      Preconditions.checkNotNull(echoResponse, "oh oh, we shouldn't have gotten here");
+    } catch (StatusRuntimeException e) {
+      logger.log(Level.INFO, "ok, good, we got the exception we were hoping for", e);
+    }
+  }
+
+  public void doLessSimpleRequests() {
+    int millisToBlockFor = 1000;
+    logger.info("Will block for " + millisToBlockFor + " millies");
+    BlockForMillisRequest.Builder blockForMillisRequestBuilder = BlockForMillisRequest.newBuilder();
+    blockForMillisRequestBuilder.setMillis(millisToBlockFor);
+    lessSimpleBlockingStub.blockForMillis(blockForMillisRequestBuilder.build());
+
+    DoNEmptyRequestsRequest.Builder do10EmptyRequestsSerially = DoNEmptyRequestsRequest.newBuilder();
+    do10EmptyRequestsSerially.setNumEmptyRequest(10);
+    do10EmptyRequestsSerially.setPLevel(1);
+
+    DoNEmptyRequestsRequest.Builder do1000EmptyRequestsP10 = DoNEmptyRequestsRequest.newBuilder();
+    do1000EmptyRequestsP10.setNumEmptyRequest(1000);
+    do1000EmptyRequestsP10.setPLevel(10);
+
+    logger.info("About to start 10 empty requests");
+    DoNEmptyRequestsResponse doNEmptyRequestsResponse = lessSimpleBlockingStub.doNEmptyRequests(
+            do10EmptyRequestsSerially.build());
+    logger.info("Finished - Total Time: " + doNEmptyRequestsResponse.getTotalProcessTime() + " Max Time: "
+            + doNEmptyRequestsResponse.getLongestRequest());
+
+    logger.info("About to start 1000 empty requests, p-level: 10");
+    doNEmptyRequestsResponse = lessSimpleBlockingStub.doNEmptyRequests(do1000EmptyRequestsP10.build());
+    logger.info("Finished - Total Time: " + doNEmptyRequestsResponse.getTotalProcessTime() + " Max Time: "
+            + doNEmptyRequestsResponse.getLongestRequest());
+
+  }
+
   /**
    * The client runner for the corresponding server (Java Version).
    * @param args Ignores command line arguments
@@ -106,14 +184,17 @@ public class ServerStatusClient {
    */
   public static void main(String[] args) throws InterruptedException {
     final ServerStatusClient serverStatusClient = new ServerStatusClient("localhost", 8123);
-    try {
+    serverStatusClient.doSimpleRequests();
+    serverStatusClient.doLessSimpleRequests();
+    /* try {
       for (int i = 0; i < 10; ++i) {
         System.out.println("Doing request: " + i);
         serverStatusClient.doRequest();
         Thread.sleep(1000);
       }
+
     } finally {
       serverStatusClient.shutdown();
-    }
+    } */
   }
 }

@@ -1,6 +1,9 @@
 package io.grpc.zpages;
 
 import com.google.common.base.Preconditions;
+import io.grpc.Status;
+import io.grpc.StatusException;
+import io.grpc.StatusRuntimeException;
 import io.grpc.status.proto.EmptyMessage;
 import io.grpc.status.proto.SimpleGrpc.SimpleImplBase;
 import io.grpc.status.proto.SimpleService.EchoRequest;
@@ -50,11 +53,13 @@ public class SimpleServiceImpl extends SimpleImplBase {
 
     int randomFail = RANDOM.nextInt(100);
     if(randomFail < failProbability) {
-      responseObserver.onError(new FailPleaseException("Looks like you hit jackpot - we failed!"));
+      Status status = Status.INTERNAL;
+      status = status.withCause(new FailPleaseException("Looks like you hit jackpot - we failed!"));
+      responseObserver.onError(status.asRuntimeException());
     } else {
       responseObserver.onNext(buildEchoResponseFromEchoRequest(echoRequest));
+      responseObserver.onCompleted();
     }
-    responseObserver.onCompleted();
   }
 
   private static class FailPleaseException extends Exception {
