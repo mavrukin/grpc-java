@@ -186,7 +186,7 @@ public class ServerStatusClient {
     final ServerStatusClient serverStatusClient = new ServerStatusClient("localhost", 8123);
     serverStatusClient.doSimpleRequests();
     serverStatusClient.doLessSimpleRequests();
-    /* try {
+    try {
       for (int i = 0; i < 10; ++i) {
         System.out.println("Doing request: " + i);
         serverStatusClient.doRequest();
@@ -195,6 +195,6 @@ public class ServerStatusClient {
 
     } finally {
       serverStatusClient.shutdown();
-    } */
+    }
   }
 }
