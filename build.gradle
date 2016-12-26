@@ -62,6 +62,7 @@ subprojects {
         javaPluginPath = "$rootDir/compiler/build/exe/java_plugin/$protocPluginBaseName$exeSuffix"
 
         guavaVersion = '20.0'
+        guiceVersion = '4.1.0'
         protobufVersion = '3.1.0'
         protobufNanoVersion = '3.0.0-alpha-5'
 
@@ -145,6 +146,7 @@ subprojects {
         libraries = [
                 errorprone: "com.google.errorprone:error_prone_annotations:2.0.11",
                 guava: "com.google.guava:guava:${guavaVersion}",
+                guice: "com.google.inject:guice:${guiceVersion}",
                 hpack: 'com.twitter:hpack:0.10.1',
                 jsr305: 'com.google.code.findbugs:jsr305:3.0.0',
                 oauth_client: 'com.google.auth:google-auth-library-oauth2-http:0.4.0',

@@ -15,6 +15,7 @@ plugins {
 description = "gRPC: zPages"
 
 dependencies {
+  compile libraries.guice
   compile project(":grpc-core")
   compile project(":grpc-netty")
   compile project(":grpc-protobuf")

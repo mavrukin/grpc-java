@@ -9,6 +9,7 @@ import java.util.logging.Logger;
 
 public class ServerStatusImpl extends ServerStatusImplBase {
   private static final Logger logger = Logger.getLogger(ServerStatusImpl.class.getName());
+  private static final StatsCollector statsCollector = new StatsCollector();
 
   @Override
   public void getExportedVariables(EmptyMessage request,
