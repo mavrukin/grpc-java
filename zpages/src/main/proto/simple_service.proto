@@ -37,10 +37,10 @@ message DoNEmptyRequestsRequest {
 }
 
 message DoNEmptyRequestsResponse {
-  int32 total_process_time = 1;
+  int64 total_process_time = 1;
   int32 successful_requests = 2;
   int32 failed_requests = 3;
-  int32 longest_request = 4;
+  int64 longest_request = 4;
 }
 
 message DoNEchoRequestsAndFailSomeRequest {

@@ -16,7 +16,7 @@ import java.util.logging.Logger;
 
 public class SimpleServiceImpl extends SimpleImplBase {
   private static final Logger logger = Logger.getLogger(SimpleServiceImpl.class.getName());
-  private static final DateFormat DATE_FORMAT = new SimpleDateFormat("[HH:mm:ss.SSS dd/MM/yyyy]");
+  protected static final DateFormat DATE_FORMAT = new SimpleDateFormat("[HH:mm:ss.SSS dd/MM/yyyy]");
   private static final Random RANDOM = new Random(System.currentTimeMillis());
 
   @Override

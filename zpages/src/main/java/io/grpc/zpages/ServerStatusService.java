@@ -52,7 +52,7 @@ public class ServerStatusService {
         .addService(ServerInterceptors.intercept(
             new SimpleServiceImpl()))
         .addService(ServerInterceptors.intercept(
-            new LessSimpleServiceImpl())).build().start();
+            new LessSimpleServiceImpl("localhost", port))).build().start();
   }
 
   private void stop() throws InterruptedException {
