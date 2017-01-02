@@ -29,45 +29,37 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package io.grpc.testing.integration;
+package io.grpc.grpclb;
 
-import static io.grpc.testing.integration.TestCases.fromString;
-import static org.junit.Assert.assertEquals;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
-import java.util.HashSet;
-import java.util.Set;
+import io.grpc.Attributes;
+import io.grpc.ExperimentalApi;
 
 /**
- * Unit tests for {@link TestCases}.
+ * Constants for the GRPCLB load-balancer.
  */
-@RunWith(JUnit4.class)
-public class TestCasesTest {
-
-  @Test(expected = IllegalArgumentException.class)
-  public void unknownStringThrowsException() {
-    fromString("does_not_exist_1234");
+@ExperimentalApi("https://github.com/grpc/grpc-java/issues/1782")
+public final class GrpclbConstants {
+  /**
+   * The load-balancing policy designated by the naming system.
+   */
+  public enum LbPolicy {
+    PICK_FIRST,
+    ROUND_ROBIN,
+    GRPCLB
   }
 
-  @Test
-  public void testCaseNamesShouldMapToEnums() {
-    // names of testcases as defined in the interop spec
-    String[] testCases = {"empty_unary", "large_unary", "client_streaming", "server_streaming",
-      "ping_pong", "empty_stream", "compute_engine_creds", "service_account_creds",
-      "jwt_token_creds", "oauth2_auth_token", "per_rpc_creds", "custom_metadata",
-      "status_code_and_message", "unimplemented_method", "unimplemented_service",
-      "cancel_after_begin", "cancel_after_first_response", "timeout_on_sleeping_server"};
+  /**
+   * An attribute of a name resolution result, designating the LB policy.
+   */
+  public static final Attributes.Key<LbPolicy> ATTR_LB_POLICY =
+      Attributes.Key.of("io.grpc.grpclb.lbPolicy");
 
-    assertEquals(testCases.length, TestCases.values().length);
+  /**
+   * The naming authority of an LB server address.  It is an address-group-level attribute, present
+   * when the address group is a LoadBalancer.
+   */
+  public static final Attributes.Key<String> ATTR_LB_ADDR_AUTHORITY =
+      Attributes.Key.of("io.grpc.grpclb.lbAddrAuthority");
 
-    Set<TestCases> testCaseSet = new HashSet<TestCases>(testCases.length);
-    for (String testCase : testCases) {
-      testCaseSet.add(TestCases.fromString(testCase));
-    }
-
-    assertEquals(TestCases.values().length, testCaseSet.size());
-  }
+  private GrpclbConstants() { }
 }

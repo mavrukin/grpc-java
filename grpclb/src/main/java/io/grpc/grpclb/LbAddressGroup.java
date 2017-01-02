@@ -29,45 +29,43 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package io.grpc.testing.integration;
+package io.grpc.grpclb;
 
-import static io.grpc.testing.integration.TestCases.fromString;
-import static org.junit.Assert.assertEquals;
+import static com.google.common.base.Preconditions.checkNotNull;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
-import java.util.HashSet;
-import java.util.Set;
+import io.grpc.EquivalentAddressGroup;
 
 /**
- * Unit tests for {@link TestCases}.
+ * Represents a balancer address entry.
  */
-@RunWith(JUnit4.class)
-public class TestCasesTest {
+class LbAddressGroup {
+  private final EquivalentAddressGroup addresses;
+  private final String authority;
 
-  @Test(expected = IllegalArgumentException.class)
-  public void unknownStringThrowsException() {
-    fromString("does_not_exist_1234");
+  LbAddressGroup(EquivalentAddressGroup addresses, String authority) {
+    this.addresses = checkNotNull(addresses, "addresses");
+    this.authority = checkNotNull(authority, "authority");
   }
 
-  @Test
-  public void testCaseNamesShouldMapToEnums() {
-    // names of testcases as defined in the interop spec
-    String[] testCases = {"empty_unary", "large_unary", "client_streaming", "server_streaming",
-      "ping_pong", "empty_stream", "compute_engine_creds", "service_account_creds",
-      "jwt_token_creds", "oauth2_auth_token", "per_rpc_creds", "custom_metadata",
-      "status_code_and_message", "unimplemented_method", "unimplemented_service",
-      "cancel_after_begin", "cancel_after_first_response", "timeout_on_sleeping_server"};
-
-    assertEquals(testCases.length, TestCases.values().length);
-
-    Set<TestCases> testCaseSet = new HashSet<TestCases>(testCases.length);
-    for (String testCase : testCases) {
-      testCaseSet.add(TestCases.fromString(testCase));
+  @Override
+  public boolean equals(Object other) {
+    if (!(other instanceof LbAddressGroup)) {
+      return false;
     }
+    LbAddressGroup otherGroup = (LbAddressGroup) other;
+    return addresses.equals(otherGroup.addresses) && authority.equals(otherGroup.authority);
+  }
 
-    assertEquals(TestCases.values().length, testCaseSet.size());
+  @Override
+  public int hashCode() {
+    return addresses.hashCode();
+  }
+
+  EquivalentAddressGroup getAddresses() {
+    return addresses;
+  }
+
+  String getAuthority() {
+    return authority;
   }
 }
