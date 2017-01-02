@@ -32,25 +32,27 @@
 package io.grpc.zpages;
 
 import com.google.common.base.Preconditions;
+
 import io.grpc.ManagedChannel;
 import io.grpc.StatusRuntimeException;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
+import io.grpc.status.proto.EmptyMessage;
+import io.grpc.status.proto.Expvar.EV_KeyValueList;
+import io.grpc.status.proto.Expvar.EV_KeyValuePair;
+import io.grpc.status.proto.LessSimpleGrpc;
+import io.grpc.status.proto.LessSimpleGrpc.LessSimpleBlockingStub;
+import io.grpc.status.proto.ServerStatusGrpc;
+import io.grpc.status.proto.ServerStatusGrpc.ServerStatusBlockingStub;
+import io.grpc.status.proto.SimpleGrpc;
+import io.grpc.status.proto.SimpleGrpc.SimpleBlockingStub;
 import io.grpc.status.proto.SimpleService.BlockForMillisRequest;
+import io.grpc.status.proto.SimpleService.DoNEchoRequestsAndFailSomeRequest;
 import io.grpc.status.proto.SimpleService.DoNEmptyRequestsRequest;
 import io.grpc.status.proto.SimpleService.DoNEmptyRequestsResponse;
 import io.grpc.status.proto.SimpleService.EchoRequest;
 import io.grpc.status.proto.SimpleService.EchoResponse;
 import io.grpc.status.proto.SimpleService.FailWithProbabilityOrSucceedEchoRequest;
-import io.grpc.status.proto.EmptyMessage;
-import io.grpc.status.proto.Expvar.EV_KeyValueList;
-import io.grpc.status.proto.Expvar.EV_KeyValuePair;
-import io.grpc.status.proto.ServerStatusGrpc;
-import io.grpc.status.proto.ServerStatusGrpc.ServerStatusBlockingStub;
-import io.grpc.status.proto.SimpleGrpc;
-import io.grpc.status.proto.SimpleGrpc.SimpleBlockingStub;
-import io.grpc.status.proto.LessSimpleGrpc;
-import io.grpc.status.proto.LessSimpleGrpc.LessSimpleBlockingStub;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -115,6 +117,10 @@ public class ServerStatusClient {
     }
   }
 
+  /**
+   * This method will execute a number of "simple" requests, i.e., they will hit the "Simple"
+   * end-point of the Stub.
+   */
   public void doSimpleRequests() {
     logger.info("Doing some simple requests");
     simpleBlockingStub.noop(EmptyMessage.getDefaultInstance());
@@ -125,8 +131,10 @@ public class ServerStatusClient {
     EchoResponse echoResponse = simpleBlockingStub.echo(echoRequest);
     logger.info("Received: " + echoResponse.getEchoResponse());
 
-    FailWithProbabilityOrSucceedEchoRequest.Builder alwaysSuccedRequest = FailWithProbabilityOrSucceedEchoRequest.newBuilder();
-    FailWithProbabilityOrSucceedEchoRequest.Builder alwaysFailRequest = FailWithProbabilityOrSucceedEchoRequest.newBuilder();
+    FailWithProbabilityOrSucceedEchoRequest.Builder alwaysSuccedRequest =
+        FailWithProbabilityOrSucceedEchoRequest.newBuilder();
+    FailWithProbabilityOrSucceedEchoRequest.Builder alwaysFailRequest =
+        FailWithProbabilityOrSucceedEchoRequest.newBuilder();
 
     alwaysSuccedRequest.setEchoRequest(echoRequest);
     alwaysSuccedRequest.setFailProbability(0);
@@ -149,6 +157,11 @@ public class ServerStatusClient {
     }
   }
 
+  /**
+   * This method will execute numerous "LessSimple" requests against the LessSimple service.  These
+   * requests play around with parallalization as well as number of requests
+   * and failure of requests.
+   */
   public void doLessSimpleRequests() {
     int millisToBlockFor = 1000;
     logger.info("Will block for " + millisToBlockFor + " millies");
@@ -156,7 +169,8 @@ public class ServerStatusClient {
     blockForMillisRequestBuilder.setMillis(millisToBlockFor);
     lessSimpleBlockingStub.blockForMillis(blockForMillisRequestBuilder.build());
 
-    DoNEmptyRequestsRequest.Builder do10EmptyRequestsSerially = DoNEmptyRequestsRequest.newBuilder();
+    DoNEmptyRequestsRequest.Builder do10EmptyRequestsSerially =
+        DoNEmptyRequestsRequest.newBuilder();
     do10EmptyRequestsSerially.setNumEmptyRequest(10);
     do10EmptyRequestsSerially.setPLevel(1);
 
@@ -167,14 +181,27 @@ public class ServerStatusClient {
     logger.info("About to start 10 empty requests");
     DoNEmptyRequestsResponse doNEmptyRequestsResponse = lessSimpleBlockingStub.doNEmptyRequests(
             do10EmptyRequestsSerially.build());
-    logger.info("Finished - Total Time: " + doNEmptyRequestsResponse.getTotalProcessTime() + " Max Time: "
-            + doNEmptyRequestsResponse.getLongestRequest());
+    logger.info("Finished - Total Time: " + doNEmptyRequestsResponse.getTotalProcessTime()
+        + " Max Time: " + doNEmptyRequestsResponse.getLongestRequest());
 
     logger.info("About to start 1000 empty requests, p-level: 10");
-    doNEmptyRequestsResponse = lessSimpleBlockingStub.doNEmptyRequests(do1000EmptyRequestsP10.build());
-    logger.info("Finished - Total Time: " + doNEmptyRequestsResponse.getTotalProcessTime() + " Max Time: "
-            + doNEmptyRequestsResponse.getLongestRequest());
+    doNEmptyRequestsResponse =
+        lessSimpleBlockingStub.doNEmptyRequests(do1000EmptyRequestsP10.build());
+    logger.info("Finished - Total Time: " + doNEmptyRequestsResponse.getTotalProcessTime()
+        + " Max Time: " + doNEmptyRequestsResponse.getLongestRequest());
 
+    DoNEchoRequestsAndFailSomeRequest.Builder doNEchoRequestsAndFaileSomeRequestBuilder =
+        DoNEchoRequestsAndFailSomeRequest.newBuilder();
+    doNEchoRequestsAndFaileSomeRequestBuilder.setBlockForMillis(
+        blockForMillisRequestBuilder.build());
+    doNEchoRequestsAndFaileSomeRequestBuilder.setEmptyRequests(do1000EmptyRequestsP10.build());
+    logger.info("About to start 1000 echo request, p-level: 10 and some will fail");
+    doNEmptyRequestsResponse = lessSimpleBlockingStub.doNRequestsAndFailSome(
+        doNEchoRequestsAndFaileSomeRequestBuilder.build());
+    logger.info("Finished - Total Time: " + doNEmptyRequestsResponse.getTotalProcessTime()
+        + " Max Time: " + doNEmptyRequestsResponse.getLongestRequest()
+        + " Num Success: " + doNEmptyRequestsResponse.getSuccessfulRequests()
+        + " Num Fail: " + doNEmptyRequestsResponse.getFailedRequests());
   }
 
   /**
