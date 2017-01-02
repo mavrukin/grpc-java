@@ -1,0 +1,14 @@
+The Python Client requires the following libraries
+
+- Flask (0.12+) https://pypi.python.org/pypi/Flask/0.12
+  which can be installed via:
+  > pip install Flask
+
+- gRPC Python library http://www.grpc.io/docs/tutorials/basic/python.html
+  which can be installed via:
+  > pip install grpcio-tools
+
+Both libraries, and their dependencies are required to run the mode
+front-end service.
+
+
