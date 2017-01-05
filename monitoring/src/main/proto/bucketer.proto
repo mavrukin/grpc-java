@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+option java_package = "io.grpc.monitoring.streamz.proto";
+option java_outer_classname = "BucketerProtos";
+option java_multiple_files = true;
+
+import "visibility.proto";
+
+package monitoring.streamz;
+
+// The parameters that define a Bucketer.  See TODO(avrukin) location to
+// doc that defines how to do this
+message BucketerProto {
+    double width = 1 [(visibility) = PUBLIC];
+    double growth_factor = 2 [(visibility) = PUBLIC];
+    int32 num_finite_buckets = 3 [(visibility) = PUBLIC];
+    // Offset is not yet fully supported
+    double offset = 4 [(visibility) = PUBLIC];
+    double scale_factor = 5 [(visibility) = PUBLIC];
+    // The following field is used to specify custom bucketer boundaries.
+    // The values must be a monotonically increasing sequence of positive
+    // numbers. If any lower_bounds fields are given, no parameter fields
+    // should be given except the required num_finite_buckets which is ignored.
+    repeated double lower_bounds = 6 [(visibility) = PUBLIC];
+}

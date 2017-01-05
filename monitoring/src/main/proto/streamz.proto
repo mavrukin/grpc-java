@@ -1,0 +1,337 @@
+syntax = "proto3";
+
+option java_package = "io.grpc.monitoring.streamz.proto";
+option java_multiple_files = true;
+option java_outer_classname = "StreamzProtos";
+
+import "distribution.proto";
+import "streamz_announcement.proto";
+import "google/protobuf/any.proto";
+
+package monitoring.streamz;
+
+////////////////////////////////////////////////////////////////////////
+// Requests
+//
+// Each request contains a list of queries, each matching a set of
+// streams.  The values of all streams matching some query pattern in
+// the request are returned periodically, via a stream of
+// MonitorEvents.  The polling period and number of events can be
+// controlled by request parameters; the default is a single event.
+
+
+// A query identifies a set of streams to monitor.
+//
+// All streams matching this query will be monitored by this request.
+// For multiple event requests (num_events > 1), the query is
+// re-evaluated each time, not just once at the beginning, so as
+// metrics are created and map elements are populated, the responses
+// will grow in number.
+message StreamQuery {
+    // A pattern over metric names.  (Metric names are slash-segmented,
+    // like absolute UNIX paths.)  Only streams whose metric names match
+    // this pattern will be included in the response.
+    //
+    // If the pattern ends with '/', it matches all metrics that reside
+    // beneath the pattern "directory", to continue the UNIX analogy.
+    // Otherwise, the pattern matches only the metric whose name it is
+    // equal to.
+    //
+    // (It is not an error to specify a pattern than cannot match any
+    // metric name; you'll just get empty results.)
+    //
+    // To match all metrics, use the pattern "/".
+    string pattern = 1;
+}
+
+////////////////////////////////////////////////////////////////////////
+// Event
+//
+// The first time a new stream is mentioned during a given call, the
+// event will contain its metadata (a StreamDefinition), but this will
+// be omitted from subsequent events for the same stream to save
+// resources.
+//
+// This compression scheme is two-level: the common metadata of several streams
+// belonging to the same (map) metric are factored into a MetricDefinition,
+// and they too are sent at most once.
+//
+// For example:
+//
+//    Metric<double>  m("/my/metric", ...);
+//    Metric<int64, string, int, string>  m("/my/map", "x", "y", "z", ...);
+//
+//  The "names" of these two metrics are "/my/metric" and "/my/map"
+//  respectively.  The first metric has only one stream, so we call
+//  it "/my/metric" also.
+//
+//  The second has many streams, such as /my/map{"foo",42,"bar"}.
+//  This is encoded in the StreamDefinition like so:
+//
+//    // first datum:
+//    StreamDefinition {
+//      metric_definition = MetricDefinition {
+//         name = "/my/map";
+//         ...
+//         field_names = ["x", "y", "z"];
+//         field_types = [string, int, string];
+//      }
+//      metric_index = 123; // => "This stream belongs to metric #123,
+//                         //      defined immediately above"
+//      string_field_values = ["foo", "bar"];
+//      int_field_values = [42];
+//      bool_field_values = [];
+//    }
+//
+//    // subsequent data:
+//    StreamDefinition {
+//      metric_index = 123; // => "This stream belongs to metric #123,
+//                          //     defined previously"
+//      string_field_values = [...]
+//      int_field_values = [...];
+//      bool_field_values = [...];
+//    }
+//
+//  Note that you need to look at MetricDefinition.field_types to know
+//  which order to read field-values from the three arrays
+//  {string,int,bool}_field_values.  In this case: string, int, string.
+//
+//  Also note that the MetricDefinition record is sent immediately
+//  prior to its first use (the "reference" metric_index=123).  The
+//  caller must remember that 123 identifies this MetricDefinition, so
+//  that subsequent references can be resolved.  In other words, the
+//  first use of a new metric_index "reference" counts as its
+//  definition.  Sequential MetricDefinitons have indices of 0, 1, 2,
+//  etc.
+//
+//  A similar encoding is used for StreamValue:
+//
+//    // first value:
+//    StreamValue {
+//      stream_definition = StreamDefinition { ... }
+//      stream_index = 17; // => "This value belongs to stream #17,
+//                         //     defined immediately above"
+//      timestamp = ...;
+//      int64_value = 123LL;
+//    }
+//
+//    // subsequent values:
+//    StreamValue {
+//      stream_index = 17; // => "This value belongs to stream #17,
+//                         //     defined previously."
+//      timestamp = ...;
+//      int64_value = 124LL;
+//    }
+//
+//  The first use of a new stream_index value is preceded by a
+//  StreamDefinition, which counts as the definition of that
+//  stream_index.  Subsequent re-uses of that index value are
+//  references to the same StreamDefinition.  Sequential
+//  StreamDefinitons have indices of 0, 1, 2, etc.
+
+// MetricAnnotations: named strings of metadata associated with a
+// metric.
+message MetricAnnotation {
+    // The name of this annotation.
+    string name = 1;
+
+    // The value of this annotation.
+    string value = 2;
+}
+
+// Never instantiated!
+message Types {
+    // The possible types of map fields.
+    enum FieldType {
+        FIELDTYPE_STRING = 0; // (UTF-8)
+        FIELDTYPE_INT = 1;
+        FIELDTYPE_BOOL = 2;
+    }
+
+    enum EncodedValueType {
+        VALUETYPE_BOOL = 0;
+        VALUETYPE_INT64 = 1;
+        VALUETYPE_DOUBLE = 2;
+        VALUETYPE_STRING = 3;  // (byte[])
+        VALUETYPE_MESSAGE = 4;
+
+        // We special-case the Distribution protocol message since the streamz
+        // system should be able to operate on distributions without excessive
+        // serialization and deserialization.
+        VALUETYPE_DISTRIBUTION = 5;
+
+        // Enums are serialized as strings, not integers, because they're
+        // human-readable and less likely to change meaning in case of
+        // version skew.
+        VALUETYPE_ENUM = 6;
+
+        // VALUETYPE_VOID is used when there is no value type; e.g., for
+        // JoinMetric. StreamValues for VOID streams will have timestamps but no
+        // values.
+        VALUETYPE_VOID = 7;
+
+        // VALUETYPE_EMPTY is used internally as a sentinel. It will never
+        // be returned by the streamz Stubby service.
+        VALUETYPE_EMPTY = 100;
+    }
+
+    message ValueTypeDescriptor {
+        EncodedValueType value_type = 1;
+        // The following fields are never set unless value_type ==
+        // VALUETYPE_MESSAGE.
+        string message_name = 2;  // With dot-delimited package name.
+        int32 message_type_id = 3;
+    }
+}
+
+// ExtendedAnnotations: a record containing annotations too complicated for
+// MetricAnnotations. Allows for setting of Any value, if such is necessary
+message ExtendedAnnotations {
+    google.protobuf.Any extended_annotation = 1;
+}
+
+// MetricDefinition: a record containing metadata for a metric
+// (its name, type, description, etc).  Exactly one such record is
+// sent prior to the first reference to this definition by
+// MonitorEvent::metric_id, and that first use establishes the
+// association between the record and the integer for use in later
+// events.
+message MetricDefinition {
+    // The name of the metric, e.g. "/myapp/request-counter".
+    // Legal metric names conform to this extended regexp:
+    // (/[a-zA-Z0-9_-]+)+.
+    string name = 1;
+
+    // Possibly-empty ordered lists of field names, types.  The lengths of
+    // the two lists are equal; their elements correspond.
+    //
+    // The wire protocol formally allows an unbounded number of fields but the
+    // canonical client (monitoring/streamz/client) will reject metrics with
+    // more than 31 fields.
+    repeated string field_name = 2;
+    repeated Types.FieldType field_type = 3;
+
+    // The type_descriptor dictates which field of StreamValue will be
+    // populated when transmitting this metric's values.
+    //
+    // If StreamQuery.include_declaration_metadata is true, the
+    // message_name, message_type_id, and message_descriptor fields of
+    // the descriptor will be populated; otherwise, only the
+    // message_type_id will be set.
+    Types.ValueTypeDescriptor type_descriptor = 4;
+
+    // The set of annotations of this metric, if any.
+    // Only defined if MonitorRequest.include_declaration_metadata
+    repeated MetricAnnotation annotation = 5;
+
+    // The set of extended annotations for this metric, if any.
+    // Only defined if MonitorRequest.include_declaration_metadata.
+    ExtendedAnnotations extended_annotations = 6;
+}
+
+// StreamDefinition: a record containing metadata for a stream (its
+// owning metric, field values, etc).  Exactly one such record is sent
+// prior to the first reference to this definition by
+// StreamValue::stream_index, and that first use establishes the
+// association between the record and the integer for use in later
+// events.
+message StreamDefinition {
+    // Metric information for this stream.  Only defined if we're
+    // introducing a new MetricDefinition.
+    //
+    // Only one MetricDefinition is ever sent for a given metric.
+    // If this field is present, then the client should save it,
+    // associated with the value of |metric_index|.  Future occurrences
+    // of the same metric_index value are "references" to that
+    // MetricDefinition, which will not be re-sent.
+    MetricDefinition metric_definition = 1;
+
+    // The index number associated with a MetricDefinition record (in
+    // this message or a previous one) that identifies this stream's
+    // metric. These numbers are consistent only within the context of a
+    // single RPC, and sequential MetricDefinitions are associated with
+    // indices 0, 1, 2, etc.
+    int32 metric_index = 2;
+
+    // Field values.  The values of the field-tuple (F1, ..., Fn) for this
+    // stream are spread across these three lists.  Users must iterate
+    // over field_types field of this stream's MetricDefinition to know
+    // what order to read elements from these three lists.
+    //
+    // e.g. for a field-tuple <string, string, int, string>, there would
+    // be three elements in string_field_values corresponding to fields #1,
+    // #2 and #4, and a single element in int_field_values for field #3.
+    // boolean_field_values would be empty.
+    repeated string string_field_values = 3;  // Valid UTF-8
+    repeated int32 int_field_values = 4;
+    repeated bool bool_field_values = 5;
+
+    // A stream is formally identified by its fields. However, if its value is
+    // reset during the course of the exporting process's lifetime, it will be
+    // given a new reset_timestamp and thus a new StreamDefinition. See also the
+    // comment for GenericCell::reset_timestamp().
+    int64 reset_timestamp = 6;
+}
+
+// RootDescriptor: A message containing basic information about a Root.
+message RootDescriptor {
+    // Name of this root. "" signifies the default root.
+    string name = 1;
+
+    // Spatial container and element for this root.
+    string spatial_container = 2;
+    string spatial_element = 3;
+
+    // Labels assigned to this root. See streamz_announcement.proto for Label definition.
+    repeated StreamzAnnouncement.Label labels = 4;
+}
+
+message TypedMessage {
+    int32 type_id = 1;
+    // tags 2-7 reserved for other forms of type identifiers
+    // E.g., type names or fingerprints
+    bytes message = 8 [ctype = CORD];
+}
+
+// A monitor event relating to one stream, consisting of a reference
+// to the stream, its sampled value, and the timestamp at which the
+// sample was taken.
+message StreamValue {
+    // Stream information for this sample datum.  Only defined if we're
+    // introducing a new StreamDefinition.
+    //
+    // Only one StreamDefinition is ever sent for a given stream.  If
+    // this field is present, then the client should save it, associated
+    // with the value of |stream_index|.  Future occurrences of the same
+    // stream_index value are "references" to that StreamDefinition, which
+    // will not be re-sent.
+    StreamDefinition stream_definition = 1 [lazy = true];
+
+    // The index number associated with a StreamDefinition record (in
+    // this message or a previous one) that identifies this stream.
+    // These numbers are consistent only within the context of a single
+    // RPC, and sequential StreamDefinitions are associated with
+    // indices 0, 1, 2, etc.
+    int32 stream_index = 2;
+
+    // The time at which the stream was sampled, in microseconds since
+    // the UNIX epoch.  (The time the RPC response is sent (or received)
+    // may be arbitrarily later.)
+    //
+    // This field is present if the timestamp is explicitly specified and the
+    // request includes the "timestamps=true" option.  If this field is not
+    // present when "timestamps=true", then this should be interpreted as the
+    // current time.  (The timestamp_micros field in MonitorEvent has the Streamz
+    // server's idea of "now" at the time it constructed the MonitorEvent
+    // message.)
+    int64 timestamp = 3;
+
+    oneof value {
+        bool bool_value = 4;
+        int64 int64_value = 5;
+        double double_value = 6;
+        bytes string_value = 7; // (VALUETYPE_ENUM also uses this)
+        TypedMessage message_value = 8;
+        DistributionProto distribution_value = 9;
+    }
+}

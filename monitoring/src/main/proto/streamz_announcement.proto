@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+option java_package = "io.grpc.monitoring.streamz.proto";
+option java_multiple_files = true;
+option java_outer_classname = "StreamzAnnouncementProtos";
+
+option optimize_for = CODE_SIZE;
+
+package monitoring.streamz;
+
+// A StreamzAnnouncement message is published by the streamz module to
+// discovery service.
+//
+// The intention is that monitors will watch discovery service for
+// these announcements and will hence notice monitorable process as
+// they start and stop.
+message StreamzAnnouncement {
+    // The time, in microseconds since the UNIX epoch, at which the
+    // announcing process started. This value must be the same as the
+    // /proc/birth_timestamp exported metric on the announcing process.
+    int64 birth_timestamp = 1;
+
+    // The time, in microseconds since the UNIX epoch, at which the
+    // announcing process created this announcement.
+    int64 announcement_timestamp = 2;
+
+    // The host which exports the Streamz RPC service.
+    //
+    // (Due to non-default Streamz roots, may be different from the host on which
+    // the data originated.)
+    string hostname = 3;
+
+    // A list of ports in the process which MAY be exporting the
+    // Streamz RPC service.
+    //
+    // The java and c++ streamz implementations currently only ever
+    // export one port at a time, which will be exporting the Streamz
+    // service.
+    repeated int32 rpcserver_port = 4;
+
+    // The name of the Streamz root ("" for the default root); see
+    // ../public/root.h. Root names are arbitrary UTF-8 strings.
+    string root = 5;
+
+    // Key-value labels populated from the value of --streamz_default_root_labels
+    // and from several other standard sources (hostname, username, etc.).
+    //
+    // Here are the labels that Streamz will populate on the default root in
+    // every process (where applicable. The C++ functions that supply each label value are also listed; the Java
+    // runtime uses the closest equivalents.
+    //
+    //   hostname              [string]   Hostname()
+    //   unix_user             [string]   MyUserName()
+    //   binary_name           [string]   ProgramInvocationShortName()
+    message Label {
+        string name = 1;
+        oneof value {
+            string string_value = 2;
+            int64 int64_value = 3;
+            bool bool_value = 4;
+        }
+    }
+
+    repeated Label label = 6;
+}

@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+option java_package = "io.grpc.monitoring.streamz.proto";
+option java_outer_classname = "DistributionProtos";
+option java_multiple_files = true;
+
+import "bucketer.proto";
+import "visibility.proto";
+import "google/protobuf/any.proto";
+
+package monitoring.streamz;
+
+message DistributionProto {
+    ////////////////////////////////////////
+    // Statistics
+
+    // Number of samples.
+    //
+    // This must be equal to the sum of |bucket|, |overflow|, |underflow|.
+    uint64 count = 1 [(visibility) = PUBLIC];
+
+    // Arithmetic mean of all samples.  Must be 0.0 if count is 0.
+    double mean = 2 [(visibility) = PUBLIC];
+
+    // Sum of squares of deviation from the mean.  Must be 0.0 if count is 0.
+    // = Sigma[i=1..n]((x_i - mean)^2)
+    double sum_of_squared_deviations = 3 [(visibility) = PUBLIC];
+
+    ////////////////////////////////////////
+    // Histogram
+
+    // The parameters that generate the Bucketer that defines the buckets for the
+    // Distribution recorded here.  Required unless the deprecated fileds below
+    // are given.
+
+    BucketerProto bucketer = 4 [(visibility) = PUBLIC];
+
+    // The finite bucket values.  Length at most num_finite_buckets() from the
+    // Bucketer created with the above parameters.
+    //
+    // Negative values indicate a run-length of zero buckets, e.g. -3 means
+    // "three zeroes".  The suffix of trailing zeroes is typically omitted.
+    // Contains no actual zeroes.
+    repeated sint64 bucket = 5 [(visibility) = PUBLIC, packed = true];
+
+    // The overflow and underflow buckets.
+    int64 underflow = 6 [(visibility) = PUBLIC];
+    int64 overflow = 7 [(visibility) = PUBLIC];
+
+    ////////////////////////////////////////
+    // Exemplars
+    message Exempler {
+        double value = 1;
+        int64 timestamp = 2;
+        google.protobuf.Any data = 3;
+    }
+
+    // Must be in increasing order of |value| field, with at most one Exemplar
+    // falling into any bucket.
+    repeated Exempler exempler = 8;
+}

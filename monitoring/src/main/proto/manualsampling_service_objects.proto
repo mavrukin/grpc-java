@@ -1,0 +1,22 @@
+// RPC service declaration for the Streamz Manual Sampling gRPC service.
+syntax = "proto3";
+
+option java_package = "io.grpc.monitoring.streamz.proto";
+option java_multiple_files = true;
+option java_outer_classname = "StreamzManualSamplingObjectProtos";
+
+import "streamz_announcement.proto";
+import "streamz_service_objects.proto";
+
+package monitoring.streamz;
+
+// At each sampling request by the target process, this message is sent with the
+// root labels and sampled data.  This is intentionally session-free so that we
+// can push manually sampled data through a load balancer.
+message RecordSampleRequest {
+    // identity and event are "morally required".
+    StreamzAnnouncement identity = 1;
+    MonitorEvent event = 2 [ lazy = true ];
+}
+
+message RecordSampleResponse {}

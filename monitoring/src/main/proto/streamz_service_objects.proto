@@ -1,0 +1,124 @@
+// RPC service request and response declarations for the Streamz Stubby service.
+syntax = "proto3";
+
+option java_package = "io.grpc.monitoring.streamz.proto";
+option java_multiple_files = true;
+option java_outer_classname = "StreamzObjectProtos";
+
+import "streamz.proto";
+
+package monitoring.streamz;
+
+// A request to monitor a list of stream-patterns.
+message MonitorRequest {
+    // Include the sampling timestamp with each returned datum.
+    bool timestamps = 1;
+
+    // Include annotations such as the docstring, units, and cumulativity with
+    // each MetricDefinition.
+    bool include_declaration_metadata = 2;
+
+    // The polling period in milliseconds.  Production executables will
+    // typically not honor a value less than 1000; this can be
+    // controlled by --streamz_min_poll_period_ms.
+    int32 poll_period_ms = 3;
+
+    // The number of events (i.e., the number of streaming RPC
+    // responses) to report before terminating the RPC.
+    // WARNING: This limit may be violated if soft_response_size_limit is
+    // exceeded and the offending proto is split (i.e. multiple events may be
+    // sent even if 'num_events' is 1).
+    int32 num_events = 4;
+
+    // The id of the root against which the following |query| patterns
+    // should be evaluated.  For most targets, the default root ("") is
+    // appropriate, but the third-party streamz proxy mechanism allows a
+    // single streamz process to export multiple roots.
+    string root = 5;
+
+    // A list of queries, defining a set of streams to monitor.
+    //
+    // Queries are continuously re-evaluated, so long-lived requests can
+    // return values for streams that come into being while the request
+    // is active.
+    //
+    // If a stream matches more than one query, only a single StreamValue
+    // is sent for it in a MonitorEvent.
+    repeated StreamQuery query = 6;
+
+    // A limit on the byte size of each streaming RPC response sent in
+    // reply to this MonitorRequest. The limit is soft because Streamz
+    // will place the values for any streams that share locking in the
+    // same response, even if that mean violating this limit.
+    //
+    // The Streamz runtime may place an internal cap on this value.
+    int32 sof_response_size_limit = 7;
+}
+
+// A response containing events for one or more streams.
+//
+// (We packaged multiple StreamValues into one MonitorEvent for
+// efficiency, since we usually produce StreamValues in bursts.)
+message MonitorEvent {
+    repeated StreamValue value = 1;
+
+    // The time (in microseconds since the epoch on the server) at which
+    // the stream values were observed. Note that this is different from
+    // the StreamValue::timestamp field that indicates the logical time
+    // at which a stream took on its current value.
+    int64 timestamp_micros = 2;
+
+    // An opaque identifier unique to the root.
+    // Only the first MonitorEvent in a given session will contain this field.
+    fixed64 root_id = 3;
+
+    // Metric information for metrics that do not currently have any defined
+    // streams and thus will not be referenced in |value|. Only one
+    // MetricDefinition is ever sent via |additional_metric_definition| for a
+    // given metric.  When the metric transitions to non-empty, the
+    // MetricDefinition will be resent as part of the |value| for the new streams.
+    repeated MetricDefinition additional_metric_definition = 4;
+}
+
+// The final RPC response.
+message MonitorResponse {
+}
+
+// A request for a list of existing roots.
+message GetRootListRequest {
+}
+
+// A response containing descriptors of all existing roots.
+message GetRootListResponse {
+    repeated RootDescriptor root = 1;
+}
+
+message WatchRootRequest {
+    string root_name = 1;
+}
+
+// The first RootInfo returned by a streaming GetRootInfo() call will
+// contain the root_id, the root_descriptor, using_collection_api, the
+// version, and the names and definitions of metrics that exist at the
+// time of the call.  Subsequent RootInfos will just contain the names
+// and definitions of new metrics created after the RPC started.
+message RootInfo {
+    // An opaque identifier unique to the root.
+    // This is the same value as root_id in MonitorEvent.
+    fixed64 root_id = 1;
+
+    RootDescriptor root_descriptor = 2;
+
+    // The names of metrics belonging to the root.
+    repeated string metric_name = 3;
+
+    // The definitions of metrics belonging to the root.
+    repeated MetricDefinition metric_definition = 4;
+
+    // Streamz-specific version number.  Language-independent.  Only increases
+    // when there is a major change which may not be backwards compatible.
+    int32 version = 16;
+}
+
+message WatchRootResponse {
+}

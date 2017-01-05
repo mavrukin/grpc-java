@@ -1,0 +1,19 @@
+// RPC service declaration for the Streamz Manual Sampling gRPC service.
+syntax = "proto3";
+
+import "manualsampling_service_objects.proto";
+
+option java_package = "io.grpc.monitoring.streamz.proto";
+option java_multiple_files = true;
+option java_outer_classname = "StreamzManualSamplingServiceProto";
+
+package monitoring.streamz;
+
+service StreamzManualSampling {
+    // Record a single sample of a set of monitored streamz.  Won't return until
+    // data has been safely inserted into the backend (unless full_roundtrip above
+    // is false, in which case will return immediately).  Can be throttled by the
+    // recording service by delaying responses, or responding with something other
+    // than OK.  For example, a response might be "Wait a minute and try again".
+    rpc RecordSample(RecordSampleRequest) returns (RecordSampleResponse) {}
+}

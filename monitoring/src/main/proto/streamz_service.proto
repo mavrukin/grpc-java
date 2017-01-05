@@ -1,0 +1,24 @@
+// RPC service declaration for the Streamz gRPC service.
+syntax = "proto3";
+
+option java_package = "io.grpc.monitoring.streamz.proto";
+option java_multiple_files = true;
+option java_outer_classname = "StreamzServiceProtos";
+
+import "streamz_service_objects.proto";
+
+package monitoring.streamz;
+
+service Streamz {
+    // Monitor the specified streams.
+    // See streamz.proto for details of protocol.
+    rpc MonitorStream(MonitorRequest) returns (stream MonitorResponse) {}
+
+    // Get a list of all available roots.
+    // See streamz_service_objects.proto for message details.
+    rpc GetRootList(GetRootListRequest) returns (GetRootListResponse) {}
+
+    // Get information about a root: its labels, its metrics, its spatial
+    // container, etc.
+    rpc WatchRoot(WatchRootRequest) returns (stream WatchRootResponse) {}
+}

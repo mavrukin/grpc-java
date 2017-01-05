@@ -4,7 +4,7 @@ buildscript {
         mavenLocal()
     }
     dependencies {
-
+        classpath libraries.protobuf_plugin
     }
 }
 
@@ -16,8 +16,15 @@ description = "gRPC: Monitoring"
 
 dependencies {
     compile libraries.guava,
-            libraries.jsr305
+            libraries.jsr305,
+            libraries.guice,
+            project(":grpc-core"),
+            project(":grpc-netty"),
+            project(":grpc-protobuf"),
+            project(":grpc-stub")
 }
+
+configureProtoCompilation()
 
 animalsniffer {
     signature = "org.codehaus.mojo.signature:java16:+@signature"

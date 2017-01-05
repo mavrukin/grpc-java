@@ -1,0 +1,21 @@
+syntax = "proto2";
+
+option java_multiple_files = true;
+option java_package = "io.grpc.monitoring.streamz.proto";
+
+import "google/protobuf/descriptor.proto";
+
+package monitoring.streamz;
+
+enum VisibilityPolicy {
+    INTERNAL = 1;
+    PUBLIC = 2;
+}
+
+extend google.protobuf.FieldOptions {
+    optional VisibilityPolicy visibility = 53740412 [default = INTERNAL];
+}
+
+extend google.protobuf.EnumValueOptions {
+    optional VisibilityPolicy enum_visibility = 53705596 [default = INTERNAL];
+}
