@@ -157,7 +157,7 @@ public class Field<T> {
   /**
    * @return the name of the field as exported to the streamz data model.
    */
-  private String getName() {
+  public String getName() {
     return name;
   }
 
