@@ -201,7 +201,7 @@ public final class Bucketer {
     Preconditions
         .checkArgument(maxBuckets >= 1, "Histograms must have at least 1 bucket: %s", maxBuckets);
     Preconditions.checkArgument((growthFactor == 0.0 || growthFactor > 1) || (width != 0.0),
-        "Growth factors, if given, must be greather than 1.0: %s", growthFactor);
+        "Growth factors, if given, must be greater than 1.0: %s", growthFactor);
     Preconditions
         .checkArgument(width >= 0.0, "Negative width coefficients are not allowed: %s", width);
     Preconditions.checkArgument(growthFactor != 0.0 || width != 0.0,

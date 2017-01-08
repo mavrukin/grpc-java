@@ -24,7 +24,7 @@ message DistributionProto {
 
     // Sum of squares of deviation from the mean.  Must be 0.0 if count is 0.
     // = Sigma[i=1..n]((x_i - mean)^2)
-    double sum_of_squared_deviations = 3 [(visibility) = PUBLIC];
+    double sum_of_squared_deviation = 3 [(visibility) = PUBLIC];
 
     ////////////////////////////////////////
     // Histogram
@@ -49,7 +49,7 @@ message DistributionProto {
 
     ////////////////////////////////////////
     // Exemplars
-    message Exempler {
+    message Exemplar {
         double value = 1;
         int64 timestamp = 2;
         google.protobuf.Any data = 3;
@@ -57,5 +57,5 @@ message DistributionProto {
 
     // Must be in increasing order of |value| field, with at most one Exemplar
     // falling into any bucket.
-    repeated Exempler exempler = 8;
+    repeated Exemplar exemplar = 8;
 }
