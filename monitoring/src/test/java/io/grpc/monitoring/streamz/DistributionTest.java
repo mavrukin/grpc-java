@@ -455,7 +455,6 @@ public class DistributionTest extends TestCase {
     assertEquals(2.0, b.getGrowthFactor());
   }
 
-  /** See http://b/29095188 */
   public void testSumOfSquaredDeviationDoesNotBecomeNegative() {
     for (int count = 1; count < 1000; count++) {
       Distribution d = new Distribution(Bucketer.fixedWidth(10, 20));
