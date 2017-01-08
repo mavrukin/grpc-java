@@ -31,6 +31,7 @@
 
 package io.grpc.testing.integration;
 
+import static com.google.common.truth.Truth.assertThat;
 import static io.grpc.testing.integration.Messages.PayloadType.COMPRESSABLE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -41,18 +42,19 @@ import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 
+import com.google.api.client.repackaged.com.google.common.base.Throwables;
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.ComputeEngineCredentials;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.auth.oauth2.OAuth2Credentials;
 import com.google.auth.oauth2.ServiceAccountCredentials;
-import com.google.census.CensusContextFactory;
-import com.google.census.RpcConstants;
-import com.google.census.TagValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
+import com.google.instrumentation.stats.RpcConstants;
+import com.google.instrumentation.stats.StatsContextFactory;
+import com.google.instrumentation.stats.TagValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.EmptyProtos.Empty;
 import com.google.protobuf.MessageLite;
@@ -71,8 +73,8 @@ import io.grpc.StatusRuntimeException;
 import io.grpc.auth.MoreCallCredentials;
 import io.grpc.internal.AbstractServerImplBuilder;
 import io.grpc.internal.GrpcUtil;
-import io.grpc.internal.testing.CensusTestUtils.FakeCensusContextFactory;
-import io.grpc.internal.testing.CensusTestUtils.MetricsRecord;
+import io.grpc.internal.testing.StatsTestUtils.FakeStatsContextFactory;
+import io.grpc.internal.testing.StatsTestUtils.MetricsRecord;
 import io.grpc.protobuf.ProtoUtils;
 import io.grpc.stub.MetadataUtils;
 import io.grpc.stub.StreamObserver;
@@ -130,10 +132,10 @@ public abstract class AbstractInteropTest {
       new AtomicReference<Metadata>();
   private static ScheduledExecutorService testServiceExecutor;
   private static Server server;
-  private static final FakeCensusContextFactory clientCensusFactory =
-      new FakeCensusContextFactory();
-  private static final FakeCensusContextFactory serverCensusFactory =
-      new FakeCensusContextFactory();
+  private static final FakeStatsContextFactory clientStatsFactory =
+      new FakeStatsContextFactory();
+  private static final FakeStatsContextFactory serverStatsFactory =
+      new FakeStatsContextFactory();
   protected static final Empty EMPTY = Empty.getDefaultInstance();
 
   protected static void startStaticServer(
@@ -152,7 +154,7 @@ public abstract class AbstractInteropTest {
     builder.addService(ServerInterceptors.intercept(
         new TestServiceImpl(testServiceExecutor),
         allInterceptors));
-    builder.censusContextFactory(serverCensusFactory);
+    builder.statsContextFactory(serverStatsFactory);
     try {
       server = builder.build().start();
     } catch (IOException ex) {
@@ -183,8 +185,8 @@ public abstract class AbstractInteropTest {
     blockingStub = TestServiceGrpc.newBlockingStub(channel);
     asyncStub = TestServiceGrpc.newStub(channel);
     requestHeadersCapture.set(null);
-    clientCensusFactory.rolloverRecords();
-    serverCensusFactory.rolloverRecords();
+    clientStatsFactory.rolloverRecords();
+    serverStatsFactory.rolloverRecords();
   }
 
   /** Clean up. */
@@ -197,8 +199,8 @@ public abstract class AbstractInteropTest {
 
   protected abstract ManagedChannel createChannel();
 
-  protected final CensusContextFactory getClientCensusFactory() {
-    return clientCensusFactory;
+  protected final StatsContextFactory getClientStatsFactory() {
+    return clientStatsFactory;
   }
 
   protected boolean metricsExpected() {
@@ -785,6 +787,74 @@ public abstract class AbstractInteropTest {
     }
   }
 
+  @Test(timeout = 10000)
+  public void maxInboundSize_exact() {
+    StreamingOutputCallRequest request = StreamingOutputCallRequest.newBuilder()
+        .addResponseParameters(ResponseParameters.newBuilder().setSize(1))
+        .build();
+    int size = blockingStub.streamingOutputCall(request).next().getSerializedSize();
+
+    TestServiceGrpc.TestServiceBlockingStub stub = TestServiceGrpc.newBlockingStub(channel)
+        .withMaxInboundMessageSize(size);
+
+    stub.streamingOutputCall(request).next();
+  }
+
+  @Test(timeout = 10000)
+  public void maxInboundSize_tooBig() {
+    StreamingOutputCallRequest request = StreamingOutputCallRequest.newBuilder()
+        .addResponseParameters(ResponseParameters.newBuilder().setSize(1))
+        .build();
+    int size = blockingStub.streamingOutputCall(request).next().getSerializedSize();
+
+    TestServiceGrpc.TestServiceBlockingStub stub = TestServiceGrpc.newBlockingStub(channel)
+        .withMaxInboundMessageSize(size - 1);
+
+    try {
+      stub.streamingOutputCall(request).next();
+      fail();
+    } catch (StatusRuntimeException ex) {
+      Status s = ex.getStatus();
+      assertThat(s.getCode()).named(s.toString()).isEqualTo(Status.Code.INTERNAL);
+      assertThat(Throwables.getStackTraceAsString(ex)).contains("exceeds maximum");
+    }
+  }
+
+  @Test(timeout = 10000)
+  public void maxOutboundSize_exact() {
+    // warm up the channel and JVM
+    blockingStub.emptyCall(Empty.getDefaultInstance());
+
+    // set at least one field to ensure the size is non-zero.
+    StreamingOutputCallRequest request = StreamingOutputCallRequest.newBuilder()
+        .addResponseParameters(ResponseParameters.newBuilder().setSize(1))
+        .build();
+    TestServiceGrpc.TestServiceBlockingStub stub = TestServiceGrpc.newBlockingStub(channel)
+        .withMaxOutboundMessageSize(request.getSerializedSize());
+
+    stub.streamingOutputCall(request).next();
+  }
+
+  @Test(timeout = 10000)
+  public void maxOutboundSize_tooBig() {
+    // warm up the channel and JVM
+    blockingStub.emptyCall(Empty.getDefaultInstance());
+    // set at least one field to ensure the size is non-zero.
+    StreamingOutputCallRequest request = StreamingOutputCallRequest.newBuilder()
+        .addResponseParameters(ResponseParameters.newBuilder().setSize(1))
+        .build();
+    TestServiceGrpc.TestServiceBlockingStub stub = TestServiceGrpc.newBlockingStub(channel)
+        .withMaxOutboundMessageSize(request.getSerializedSize() - 1);
+    try {
+      stub.streamingOutputCall(request).next();
+      fail();
+    } catch (StatusRuntimeException ex) {
+      Status s = ex.getStatus();
+      assertThat(s.getCode()).named(s.toString()).isEqualTo(Status.Code.CANCELLED);
+      assertThat(Throwables.getStackTraceAsString(ex)).contains("message too large");
+    }
+  }
+
   protected int unaryPayloadLength() {
     // 10MiB.
     return 10485760;
@@ -955,7 +1025,7 @@ public abstract class AbstractInteropTest {
     // Test FullDuplexCall
     @SuppressWarnings("unchecked")
     StreamObserver<StreamingOutputCallResponse> responseObserver =
-        (StreamObserver<StreamingOutputCallResponse>) mock(StreamObserver.class);
+        mock(StreamObserver.class);
     StreamObserver<StreamingOutputCallRequest> requestObserver
         = asyncStub.fullDuplexCall(responseObserver);
     requestObserver.onNext(streamingRequest);
@@ -1274,7 +1344,7 @@ public abstract class AbstractInteropTest {
 
   private void assertClientMetrics(String method, Status.Code status,
       Collection<? extends MessageLite> requests, Collection<? extends MessageLite> responses) {
-    MetricsRecord clientRecord = clientCensusFactory.pollRecord();
+    MetricsRecord clientRecord = clientStatsFactory.pollRecord();
     assertNotNull("clientRecord is not null", clientRecord);
     checkTags(clientRecord, false, method, status);
     if (requests != null && responses != null) {
@@ -1298,7 +1368,7 @@ public abstract class AbstractInteropTest {
       try {
         // On the server, the stats is finalized in ServerStreamListener.closed(), which can be run
         // after the client receives the final status.  So we use a timeout.
-        serverRecord = serverCensusFactory.pollRecord(1, TimeUnit.SECONDS);
+        serverRecord = serverStatsFactory.pollRecord(1, TimeUnit.SECONDS);
       } catch (InterruptedException e) {
         throw new RuntimeException(e);
       }
