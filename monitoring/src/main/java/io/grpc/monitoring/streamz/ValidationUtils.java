@@ -2,6 +2,7 @@ package io.grpc.monitoring.streamz;
 
 import com.google.common.base.Ascii;
 
+import com.google.common.base.Preconditions;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.regex.Pattern;
@@ -90,68 +91,56 @@ class ValidationUtils {
     }
 
     private static void validateUrlLikeName(String type, String name) {
-        String commonMessage = "Illegal " + type + " name: \"" + name + "\"; ";
+      String commonMessage = String.format("Illegal %s name: \"%s\": ", type, name) + "%s";
+      int firstSlash = name.indexOf('/');
+      Preconditions.checkArgument(firstSlash != -1, commonMessage,
+          "must contain at least one slash");
 
-        int firstSlash = name.indexOf('/');
-        if (firstSlash == -1) {
-            throw new IllegalArgumentException(commonMessage + "must contain at least one slash");
-        }
+      String service = name.substring(0, firstSlash);
+      try {
+        URI uri = new URI("http://" + service);
+        Preconditions.checkArgument(uri.getHost() != null, commonMessage,
+            "service part is not a valid host name under RFC 2396");
+      } catch (URISyntaxException e) {
+          throw new IllegalArgumentException(String.format(commonMessage,
+                  "service part is not a valid host name under RFC 2396"), e);
+      }
 
-        String service = name.substring(0, firstSlash);
-        try {
-            URI uri = new URI("http://" + service);
-            if (uri.getHost() == null) {
-                throw new IllegalArgumentException(commonMessage
-                        + "service part is not a valid host name under RFC 2396");
-            }
-        } catch (URISyntaxException e) {
-            throw new IllegalArgumentException(commonMessage
-                    + "service part is not a valid host name under RFC 2396", e);
-        }
+      Preconditions.checkArgument(isNormalizedHostName(service), commonMessage,
+          "service part is not normalized (lowercase with no trailing period)");
 
-        if (!isNormalizedHostName(service)) {
-            throw new IllegalArgumentException(commonMessage
-                    + "service part is not normalized (lowercase with no trailing period)");
-        }
+      String path = name.substring(firstSlash);  // Removes the service part.
 
-        String path = name.substring(firstSlash);  // Removes the service part.
+      // Make sure that every escaped octet is valid (RFC 1738, section 2.2.).
+      //
+      // Also allow only normalized paths (%-encoding requires upper case
+      // hexadecimal digits, and characters not requiring %-encoding should not be
+      // encoded) so that different metric names would always URL-encode different
+      // strings.
+      for (int i = 0; i < path.length(); i++) {
+          char c = path.charAt(i);
+          if (c == '%') {
+              // Is the % followed by two hex digits?
+            Preconditions.checkArgument((i < path.length() - 2
+                && isHex(path.charAt(i + 1)) && isHex(path.charAt(i + 2))), commonMessage,
+                "bad escaped octet");
+            // Are the hexadecimal digits upper case?
+            // RFC 1738 mentions upper case digits first, so consider them primary.
+            Preconditions.checkArgument(((isAsciiDigit(path.charAt(i + 1))
+                    || Ascii.isUpperCase(path.charAt(i + 1))) && (isAsciiDigit(path.charAt(i + 2))
+                    || Ascii.isUpperCase(path.charAt(i + 2)))),
+                commonMessage + "%s", "escaped octet must be normalized to use upper case digits: ",
+                path.substring(i, i + 3));
 
-        // Make sure that every escaped octet is valid (RFC 1738, section 2.2.).
-        //
-        // Also allow only normalized paths (%-encoding requires upper case
-        // hexadecimal digits, and characters not requiring %-encoding should not be
-        // encoded) so that different metric names would always URL-encode different
-        // strings.
-        for (int i = 0; i < path.length(); i++) {
-            char c = path.charAt(i);
-            if (c == '%') {
-                // Is the % followed by two hex digits?
-                if (!(i < path.length() - 2
-                        && isHex(path.charAt(i + 1)) && isHex(path.charAt(i + 2)))) {
-                    throw new IllegalArgumentException(commonMessage + "bad escaped octet");
-                }
+            // Is the octet one which must be encoded?
+            char escaped = (char) Integer.parseInt(path.substring(i + 1, i + 3), 16);
+            Preconditions.checkArgument(mustBeEscapedInUrl(escaped), commonMessage + "%s",
+                "octet not required to be escaped must be normalized to be used as is: ",
+                path.substring(i, i + 3));
+          }
+      }
 
-                // Are the hexadecimal digits upper case?
-                // RFC 1738 mentions upper case digits first, so consider them primary.
-                if (!((isAsciiDigit(path.charAt(i + 1)) || Ascii.isUpperCase(path.charAt(i + 1)))
-                        && (isAsciiDigit(path.charAt(i + 2)) || Ascii.isUpperCase(path.charAt(i + 2))))) {
-                    throw new IllegalArgumentException(commonMessage
-                            + "escaped octet must be normalized to use upper case digits: "
-                            + path.substring(i, i + 3));
-                }
-
-                // Is the octet one which must be encoded?
-                char escaped = (char) Integer.parseInt(path.substring(i + 1, i + 3), 16);
-                if (!mustBeEscapedInUrl(escaped)) {
-                    throw new IllegalArgumentException(commonMessage
-                            + "octet not required to be escaped must be normalized to be used as is: "
-                            + path.substring(i, i + 3));
-                }
-            }
-        }
-
-        if (!PATH_PATTERN.matcher(path).matches()) {
-            throw new IllegalArgumentException(commonMessage + "invalid path");
-        }
+        Preconditions.checkArgument(PATH_PATTERN.matcher(path).matches(), commonMessage,
+            "invalid path");
     }
 }

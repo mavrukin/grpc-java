@@ -16,6 +16,7 @@ description = "gRPC: Monitoring"
 
 dependencies {
     compile libraries.guava,
+    	    libraries.joda,
             libraries.jsr305,
             libraries.guice,
             project(":grpc-core"),

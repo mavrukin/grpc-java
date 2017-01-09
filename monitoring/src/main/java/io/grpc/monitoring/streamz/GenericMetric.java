@@ -108,18 +108,15 @@ public abstract class GenericMetric<V, M extends GenericMetric<V, M>> {
 
     GenericMetric(String name, ValueTypeTraits<V> traits, Metadata metadata,
                   ImmutableList<? extends Field<?>> fields) {
-        this.name = name;
-        this.valueTypeTraits = traits;
-        validateMetricName(name);
-
-        initMetricDefinitionFileAndLine();
-
-        this.fields = Preconditions.checkNotNull(fields);
-        this.fieldNames = ImmutableList.copyOf(Iterables.transform(this.fields, GET_FIELD_NAME));
-        validateFieldNames(name, fieldNames);
-
-        this.newCellResetTimestampMicros = DEFAULT_CELL_RESET_TIMESTAMP_MICROS;
-        this.metadata = addFieldDescriptionsToMetadata(metadata, fields);
+      validateMetricName(name);
+      this.name = name;
+      this.valueTypeTraits = traits;
+      this.fields = Preconditions.checkNotNull(fields);
+      this.fieldNames = ImmutableList.copyOf(Iterables.transform(this.fields, GET_FIELD_NAME));
+      validateFieldNames(name, fieldNames);
+      initMetricDefinitionFileAndLine();
+      this.newCellResetTimestampMicros = DEFAULT_CELL_RESET_TIMESTAMP_MICROS;
+      this.metadata = addFieldDescriptionsToMetadata(metadata, fields);
     }
 
     private static Metadata addFieldDescriptionsToMetadata(
@@ -131,8 +128,8 @@ public abstract class GenericMetric<V, M extends GenericMetric<V, M>> {
                 if (sb.length() > 0) {
                     sb.append("\n");
                 }
-                sb.append(String.format("%s(%s): %s",
-                        field.getName(), field.getNativeType().getSimpleName(), field.getDescription()));
+                sb.append(String.format("%s(%s): %s", field.getName(),
+                    field.getNativeType().getSimpleName(), field.getDescription()));
             }
         }
 
@@ -175,12 +172,9 @@ public abstract class GenericMetric<V, M extends GenericMetric<V, M>> {
     }
 
     private static void validateMetricName(String name) {
-        if (name.isEmpty()) {
-            throw new IllegalArgumentException("Illegal metric name: \"" + name + "\"; "
-                    + "must not be empty");
-        } else {
-            ValidationUtils.validateUrlLikeMetricName(name);
-        }
+        Preconditions.checkArgument(!name.isEmpty(),
+            "Illegal metric name: %s; must not be empty", name);
+        ValidationUtils.validateUrlLikeMetricName(name);
     }
 
     /**
@@ -415,12 +409,10 @@ public abstract class GenericMetric<V, M extends GenericMetric<V, M>> {
         Preconditions.checkArgument(fieldTuple.length() == fields.size(),
                 "Wrong number of fields. Got %s for %s", fieldTuple, this);
         for (int ii = 0; ii < fields.size(); ii++) {
-            Object field = fieldTuple.get(ii);
-            Class<?> requiredType = fields.get(ii).getType();
-            if (!requiredType.isInstance(field)) {
-                throw new IllegalArgumentException("Field " + ii + " not of required type. Got "
-                        + fieldTuple + " for " + this);
-            }
+          Object field = fieldTuple.get(ii);
+          Class<?> requiredType = fields.get(ii).getType();
+          Preconditions.checkArgument(requiredType.isInstance(field),
+              "Field %s not of required type. Got %s for %s", ii, fieldTuple, this);
         }
     }
 

@@ -52,7 +52,7 @@ message DistributionProto {
     message Exemplar {
         double value = 1;
         int64 timestamp = 2;
-        google.protobuf.Any data = 3;
+        repeated google.protobuf.Any extra_data = 3;
     }
 
     // Must be in increasing order of |value| field, with at most one Exemplar
