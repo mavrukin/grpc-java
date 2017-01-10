@@ -89,10 +89,10 @@ def _GenerateFiles(this_dir, max_metric_dimension):
         'r').read()
     factory_methods[className] = ''
 
-  tester_factory_methods_templates = open(os.path.join(this_dir,
-                                                       'testing/StreamzTester.factoryMethods.java.template'),
-                                          'r').read()
-  tester_factory_methods = ''
+  # tester_factory_methods_templates = open(os.path.join(this_dir,
+  #                                                     'testing/StreamzTester.factoryMethods.java.template'),
+  #                                        'r').read()
+  # tester_factory_methods = ''
 
   for dimensionality in range(1, max_metric_dimension + 1):
     type_javadoc = ''
@@ -164,8 +164,8 @@ def _GenerateFiles(this_dir, max_metric_dimension):
                'CallbackMetric%d.java' % dimensionality, template_vars)
     _WriteFile(this_dir, 'Counter.java.template',
                'Counter%d.java' % dimensionality, template_vars)
-    _WriteFile(this_dir, 'testing/MetricReference.java.template',
-               'testing/MetricReference%d.java' % dimensionality, template_vars)
+    # _WriteFile(this_dir, 'testing/MetricReference.java.template',
+    #            'testing/MetricReference%d.java' % dimensionality, template_vars)
     _WriteFile(this_dir, 'EventMetric.java.template',
                'EventMetric%d.java' % dimensionality, template_vars)
     if dimensionality <= DEPRECATED_ENTITIES_MAX_DIMENSIONALITY:
@@ -185,7 +185,7 @@ def _GenerateFiles(this_dir, max_metric_dimension):
       factory_methods[className] += (
         factory_methods_templates[className] % template_vars)
 
-    tester_factory_methods += tester_factory_methods_templates % template_vars
+    # tester_factory_methods += tester_factory_methods_templates % template_vars
 
   template_vars = {
     'generator': 'generate.py'
@@ -196,12 +196,12 @@ def _GenerateFiles(this_dir, max_metric_dimension):
   _WriteFile(this_dir, 'MetricFactory.java.template',
              'MetricFactory.java', template_vars)
 
-  template_vars = {
-    'generator': 'generate.py',
-    'factory_methods': tester_factory_methods
-  }
-  _WriteFile(this_dir, 'testing/StreamzTester.java.template',
-             'testing/StreamzTester.java', template_vars)
+  # template_vars = {
+  #  'generator': 'generate.py',
+  #  'factory_methods': tester_factory_methods
+  # }
+  # _WriteFile(this_dir, 'testing/StreamzTester.java.template',
+  #           'testing/StreamzTester.java', template_vars)
 
 def main(argv):
   this_dir = os.path.dirname(os.path.realpath(argv[0]))

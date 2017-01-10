@@ -3,13 +3,14 @@
 
 package io.grpc.monitoring.streamz;
 
-import com.google.common.base.Randoms;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.ProvidedBy;
 
+import java.security.SecureRandom;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.annotation.Generated;
@@ -127,7 +128,7 @@ public abstract class MetricFactory {
   /**
    * A globally unique identifier for the metric factory.
    */
-  private final long id = Randoms.secureRandom().nextLong();
+  private final long id = UUID.randomUUID().getMostSignificantBits();
 
   /**
    * Incremented whenever there is a change in the set of metrics.

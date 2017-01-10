@@ -1,18 +1,31 @@
 package io.grpc.monitoring.streamz;
 
-import com.google.inject.ImplementedBy;
 import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.IllegalFormatException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
+ * Various utility functions.
+ *
+ * @author adonovan@google.com (Alan Donovan)
  * @author avrukin@google.com (Adopted / Moved to gRPC & Open Source)
  */
-class Utils {
+final class Utils {
+
+  private Utils() {}
+
+  private static final Clock defaultSystemClock = new SystemClock();
+  private static AtomicReference<Clock> clockRef = new AtomicReference<Clock>();
+
+  static Clock getClock() {
+    clockRef.compareAndSet(null, defaultSystemClock);
+    return clockRef.get();
+  }
   /**
    * Safely formats a string with {@link String#format(String, Object[])},
    * and gaurantees not to throw an exception, but instead returns a slightly
@@ -49,10 +62,8 @@ class Utils {
     return System.getProperty("com.google.appengine.runtime.environment") != null;
   }
 
-  // TODO(avrukin) This does not implement the "correct" clock, fix this prior to prod
-
   static long getCurrentTimeMicros() {
-    return TimeUnit.MILLISECONDS.toMicros(System.currentTimeMillis());
+    return TimeUnit.MILLISECONDS.toMicros(getClock().now().getMillis());
   }
 
   private static long processStartTime = -1;
@@ -67,4 +78,37 @@ class Utils {
     }
     return TimeUnit.MILLISECONDS.toMicros(ManagementFactory.getRuntimeMXBean().getStartTime());
   }
+
+  /**
+   * Returns the name of the JVM's main class, or the string "unknown" in the
+   * case where the main thread has already terminated.
+   */
+  // TODO(adonovan): move this beneath com.google.common
+  static String getMainClassName() {
+    // If main has started, the topmost active method on a given stack is
+    // called "run" iff the class is a subclass of Thread, or "main" for the
+    // sole main class.
+    if (!runningOnAppEngine()) {
+      // Thread.getAllStackTraces is unavailable on AppEngine.
+      for (StackTraceElement[] stackTrace : Thread.getAllStackTraces().values()) {
+        if (stackTrace.length > 0) {
+          StackTraceElement stackStart = stackTrace[stackTrace.length - 1];
+          if (stackStart.getMethodName().equals("main")) {
+            return stackStart.getClassName();
+          }
+        }
+      }
+      // If main hasn't started yet, the main class must still be initializing:
+      for (StackTraceElement[] stackTrace : Thread.getAllStackTraces().values()) {
+        if (stackTrace.length > 0) {
+          StackTraceElement stackStart = stackTrace[stackTrace.length - 1];
+          if (stackStart.getMethodName().equals("<clinit>")) {
+            return stackStart.getClassName();
+          }
+        }
+      }
+    }
+    return "unknown";
+  }
+
 }

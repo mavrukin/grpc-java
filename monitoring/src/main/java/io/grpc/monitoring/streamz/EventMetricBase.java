@@ -173,10 +173,11 @@ abstract class EventMetricBase<M extends EventMetricBase<M>> {
         builder.addAllExtraData(Arrays.asList(attachments));
         exemplarHasData = true;
       } else {
-        logger.info("Couldn't attach exemplar to %s as the attachment %s was specified more than once.", this, attachment.getTypeUrl());
-        logger.atInfo().atMostEvery(60, TimeUnit.SECONDS).log(
-            "Couldn't attach exemplar to %s as the attachment %s was specified more than once.",
-            this, attachment.getTypeUrl());
+        // TODO(avrukin) figure out this logging here
+        // logger.info("Couldn't attach exemplar to %s as the attachment %s was specified more than once.", this, attachment.getTypeUrl());
+        // logger.atInfo().atMostEvery(60, TimeUnit.SECONDS).log(
+        //     "Couldn't attach exemplar to %s as the attachment %s was specified more than once.",
+        //    this, attachment.getTypeUrl());
       }
     }
     
