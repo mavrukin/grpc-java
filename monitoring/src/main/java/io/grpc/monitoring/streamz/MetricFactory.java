@@ -10,7 +10,6 @@ import com.google.inject.ProvidedBy;
 
 import java.security.SecureRandom;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.annotation.Generated;
@@ -128,7 +127,8 @@ public abstract class MetricFactory {
   /**
    * A globally unique identifier for the metric factory.
    */
-  private final long id = UUID.randomUUID().getMostSignificantBits();
+  private final long id =
+      new SecureRandom(Long.toString(System.currentTimeMillis()).getBytes()).nextLong();
 
   /**
    * Incremented whenever there is a change in the set of metrics.

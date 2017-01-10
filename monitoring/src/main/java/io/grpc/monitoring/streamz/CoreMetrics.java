@@ -184,9 +184,15 @@ enum CoreMetrics {
     }
 
     private static void exportMXBeanCpuUsage() {
-        OperatingSystemMXBean osBean = ManagementFactory.getOperatingSystemMXBean();
+        final OperatingSystemMXBean osBean = ManagementFactory.getOperatingSystemMXBean();
 
-        if (osBean instanceof com.sun.management.OperatingSystemMXBean) {
+      // TODO(avrukin + jeremymanson) doing a quick implementation that will work
+      // getSystemLoadAverage gives us a % based average over the previous minute
+      // we can thus multiply this value by 60 to get the amount of "seconds" that were
+      // consumed during the previous minute.  If the load is say 0.25 then it would mean we
+      // consumed 15 seconds worth of CPU time over the previous minute, if it was 2.0 (two cores
+      // at 100%) that would mean we consumed 120 seconds worth of CPU time.
+        /* if (osBean instanceof com.sun.management.OperatingSystemMXBean) {
             final com.sun.management.OperatingSystemMXBean os =
                     (com.sun.management.OperatingSystemMXBean) osBean;
 
@@ -205,7 +211,18 @@ enum CoreMetrics {
                         }
                     }
             );
+        } */
+
+      final Metadata cpuMetadata = new Metadata("Total CPU time consumed by this process.")
+          .setCumulative().setUnit(Units.SECONDS);
+      final CallbackMetric0<Double> cpuUsage = MetricFactory.getDefault().newCallbackMetric(
+          "/proc/cpu/usage", Double.class, cpuMetadata);
+      MetricFactory.getDefault().newTrigger(cpuUsage, new Runnable() {
+        @Override
+        public void run() {
+          cpuUsage.set(osBean.getSystemLoadAverage() * 60);
         }
+      });
     }
 
     private static void exportGcuUsage() {
@@ -268,6 +285,9 @@ enum CoreMetrics {
             new Metadata("The name of this process's executable or main class"));
 
     private static void exportFileDescriptorCount() {
+      // TODO(avrukin + jeremymanson) No good way to hack this up, just not available in the generic
+      // version, will need a proper implementation when we go to prod
+      /*
         OperatingSystemMXBean os = ManagementFactory.getOperatingSystemMXBean();
         if (os instanceof UnixOperatingSystemMXBean) {
             final UnixOperatingSystemMXBean unixOs = ((UnixOperatingSystemMXBean) os);
@@ -289,6 +309,7 @@ enum CoreMetrics {
                     }
             );
         }
+      */
     }
 
     // TODO(avrukin + jeremymanson) BORGLET STUFF!!!

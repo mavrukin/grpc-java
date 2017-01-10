@@ -82,6 +82,7 @@ message MonitorEvent {
 
 // The final RPC response.
 message MonitorResponse {
+    MonitorEvent monitor_event = 1;
 }
 
 // A request for a list of existing roots.

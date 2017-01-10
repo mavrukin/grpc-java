@@ -12,7 +12,9 @@ package monitoring.streamz;
 service Streamz {
     // Monitor the specified streams.
     // See streamz.proto for details of protocol.
-    rpc MonitorStream(MonitorRequest) returns (stream MonitorResponse) {}
+    rpc MonitorStream(stream MonitorRequest) returns (stream MonitorResponse) {}
+
+    rpc GetStream(MonitorRequest) returns (MonitorResponse) {}
 
     // Get a list of all available roots.
     // See streamz_service_objects.proto for message details.

@@ -1,0 +1,79 @@
+
+  /**
+   * Creates a reference to an %(number)s-dimensional metric.
+   *
+   * <p> <b>Important</b> When the metric's value type
+   * {@code Integer}, use {@code Long} here. That's because the collection mechanism doesn't
+   * distinguish between 32- and 64-bit integers, so the fact that the metric was an {@code
+   * Integer} is long gone by the time this reference gets a hold of it.
+   *
+   * @param metricName the name of the metric.
+   * @param valueType the value type of the metric.%(new_field_params_javadoc)s
+   */
+  public <%(types)s, V>
+  MetricReferenceTester%(dimensionality)d<%(types)s, V> metricReference(
+      String metricName,
+      Class<V> valueType,
+      %(new_field_params)s) {
+    return new MetricReferenceTester%(dimensionality)d<%(types)s, V>(
+        this, metricName, valueType,
+        %(fields)s);
+  }
+
+  /**
+   * Creates a reference to an %(number)s-dimensional event metric.
+   *
+   * @param metricName The name of the metric.%(new_field_params_javadoc)s
+   */
+  public <%(types)s>
+  MetricReferenceTester%(dimensionality)d<%(types)s, Distribution> eventMetricReference(
+      String metricName,
+      %(new_field_params)s) {
+    return new MetricReferenceTester%(dimensionality)d<%(types)s, Distribution>(
+        this, metricName, Distribution.class,
+        %(fields)s);
+  }
+
+  private <%(types)s, V, M extends GenericMetric<V, M>>
+  MetricReferenceTester%(dimensionality)d<%(types)s, V> referenceToImpl%(dimensionality)d(
+      GenericMetric<V, M> metric) {
+    return new MetricReferenceTester%(dimensionality)d<%(types)s, V>(
+      this, metric.getName(), metric.getValueType(),
+      Iterables.toArray(metric.getFieldNames(), String.class));
+  }
+
+  /**
+   * Creates a metric tester for a specific metric.
+   *
+   * @param metric the metric to create a tester for.
+   */
+  public <%(types)s, V>
+  MetricReferenceTester%(dimensionality)d<%(types)s, V> referenceTo(
+      Metric%(dimensionality)d<%(types)s, V> metric) {
+    return referenceToImpl%(dimensionality)d(metric);
+  }
+
+  /**
+   * Creates a metric tester for a specific event metric.
+   *
+   * @param metric the metric to create a tester for.
+   */
+  public <%(types)s>
+  MetricReferenceTester%(dimensionality)d<%(types)s, Distribution> referenceTo(
+      EventMetric%(dimensionality)d<%(types)s> metric) {
+    // Can't use referenceToImpl because getUnderlyingMetric() is protected.
+    return new MetricReferenceTester%(dimensionality)d<%(types)s, Distribution>(
+      this, metric.getName(), Distribution.class,
+      Iterables.toArray(metric.getFieldNames(), String.class));
+  }
+
+  /**
+   * Creates a metric tester for a specific counter.
+   *
+   * @param metric the metric to create a tester for.
+   */
+  public <%(types)s>
+  MetricReferenceTester%(dimensionality)d<%(types)s, Long> referenceTo(
+      Counter%(dimensionality)d<%(types)s> metric) {
+    return referenceToImpl%(dimensionality)d(metric);
+  }
