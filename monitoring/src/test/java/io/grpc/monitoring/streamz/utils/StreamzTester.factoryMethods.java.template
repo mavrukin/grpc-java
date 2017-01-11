@@ -1,6 +1,6 @@
 
   /**
-   * Creates a reference to an %(number)s-dimensional metric.
+   * Creates a reference to an ${number}-dimensional metric.
    *
    * <p> <b>Important</b> When the metric's value type
    * {@code Integer}, use {@code Long} here. That's because the collection mechanism doesn't
@@ -8,36 +8,36 @@
    * Integer} is long gone by the time this reference gets a hold of it.
    *
    * @param metricName the name of the metric.
-   * @param valueType the value type of the metric.%(new_field_params_javadoc)s
+   * @param valueType the value type of the metric.${new_field_params_javadoc}
    */
-  public <%(types)s, V>
-  MetricReferenceTester%(dimensionality)d<%(types)s, V> metricReference(
+  public <${types}, V>
+  MetricReferenceTester${dimensionality}<${types}, V> metricReference(
       String metricName,
       Class<V> valueType,
-      %(new_field_params)s) {
-    return new MetricReferenceTester%(dimensionality)d<%(types)s, V>(
+      ${new_field_params}) {
+    return new MetricReferenceTester${dimensionality}<${types}, V>(
         this, metricName, valueType,
-        %(fields)s);
+        ${fields});
   }
 
   /**
-   * Creates a reference to an %(number)s-dimensional event metric.
+   * Creates a reference to an ${number}-dimensional event metric.
    *
-   * @param metricName The name of the metric.%(new_field_params_javadoc)s
+   * @param metricName The name of the metric.${new_field_params_javadoc}
    */
-  public <%(types)s>
-  MetricReferenceTester%(dimensionality)d<%(types)s, Distribution> eventMetricReference(
+  public <${types}>
+  MetricReferenceTester${dimensionality}<${types}, Distribution> eventMetricReference(
       String metricName,
-      %(new_field_params)s) {
-    return new MetricReferenceTester%(dimensionality)d<%(types)s, Distribution>(
+      ${new_field_params}) {
+    return new MetricReferenceTester${dimensionality}<${types}, Distribution>(
         this, metricName, Distribution.class,
-        %(fields)s);
+        ${fields});
   }
 
-  private <%(types)s, V, M extends GenericMetric<V, M>>
-  MetricReferenceTester%(dimensionality)d<%(types)s, V> referenceToImpl%(dimensionality)d(
+  private <${types}, V, M extends GenericMetric<V, M>>
+  MetricReferenceTester${dimensionality}<${types}, V> referenceToImpl${dimensionality}(
       GenericMetric<V, M> metric) {
-    return new MetricReferenceTester%(dimensionality)d<%(types)s, V>(
+    return new MetricReferenceTester${dimensionality}<${types}, V>(
       this, metric.getName(), metric.getValueType(),
       Iterables.toArray(metric.getFieldNames(), String.class));
   }
@@ -47,10 +47,10 @@
    *
    * @param metric the metric to create a tester for.
    */
-  public <%(types)s, V>
-  MetricReferenceTester%(dimensionality)d<%(types)s, V> referenceTo(
-      Metric%(dimensionality)d<%(types)s, V> metric) {
-    return referenceToImpl%(dimensionality)d(metric);
+  public <${types}, V>
+  MetricReferenceTester${dimensionality}<${types}, V> referenceTo(
+      Metric${dimensionality}<${types}, V> metric) {
+    return referenceToImpl${dimensionality}(metric);
   }
 
   /**
@@ -58,11 +58,11 @@
    *
    * @param metric the metric to create a tester for.
    */
-  public <%(types)s>
-  MetricReferenceTester%(dimensionality)d<%(types)s, Distribution> referenceTo(
-      EventMetric%(dimensionality)d<%(types)s> metric) {
+  public <${types}>
+  MetricReferenceTester${dimensionality}<${types}, Distribution> referenceTo(
+      EventMetric${dimensionality}<${types}> metric) {
     // Can't use referenceToImpl because getUnderlyingMetric() is protected.
-    return new MetricReferenceTester%(dimensionality)d<%(types)s, Distribution>(
+    return new MetricReferenceTester${dimensionality}<${types}, Distribution>(
       this, metric.getName(), Distribution.class,
       Iterables.toArray(metric.getFieldNames(), String.class));
   }
@@ -72,8 +72,8 @@
    *
    * @param metric the metric to create a tester for.
    */
-  public <%(types)s>
-  MetricReferenceTester%(dimensionality)d<%(types)s, Long> referenceTo(
-      Counter%(dimensionality)d<%(types)s> metric) {
-    return referenceToImpl%(dimensionality)d(metric);
+  public <${types}>
+  MetricReferenceTester${dimensionality}<${types}, Long> referenceTo(
+      Counter${dimensionality}<${types}> metric) {
+    return referenceToImpl${dimensionality}(metric);
   }

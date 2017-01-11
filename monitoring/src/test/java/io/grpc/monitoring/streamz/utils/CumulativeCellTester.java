@@ -38,10 +38,10 @@ import junit.framework.Assert;
  */
 @Beta
 public class CumulativeCellTester {
-  private final CellReference<Long> cell;
+  private final CellReferenceTester<Long> cell;
   private long baseline;
 
-  CumulativeCellTester(CellReference<Long> cell) {
+  CumulativeCellTester(CellReferenceTester<Long> cell) {
     this.cell = cell;
     this.baseline = safe(cell.getValue());
   }

@@ -97,7 +97,7 @@ public class MetricReferenceTester<V> extends MetricReference<V> {
         "cumulativeTester() can only be applied to MetricReference<Long>");
     assertCumulative();
     @SuppressWarnings("unchecked")
-    MetricReference<Long> longMetricReference = (MetricReference<Long>) this;
+    MetricReferenceTester<Long> longMetricReference = (MetricReferenceTester<Long>) this;
     return new CumulativeMetricTester(longMetricReference);
   }
 

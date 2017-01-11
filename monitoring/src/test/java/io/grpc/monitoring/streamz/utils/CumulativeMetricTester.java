@@ -21,10 +21,10 @@ import javax.annotation.CheckReturnValue;
  */
 @Beta
 public class CumulativeMetricTester {
-  private final MetricReference<Long> metric;
+  private final MetricReferenceTester<Long> metric;
   private Map<FieldKey, Long> baseline;
 
-  CumulativeMetricTester(MetricReference<Long> metric) {
+  CumulativeMetricTester(MetricReferenceTester<Long> metric) {
     this.metric = metric;
     recordBaseline();
   }

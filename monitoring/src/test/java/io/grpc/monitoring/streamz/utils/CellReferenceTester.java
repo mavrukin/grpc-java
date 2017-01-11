@@ -20,8 +20,13 @@ public class CellReferenceTester<V> extends CellReference<V> {
     Preconditions.checkState(metric.getValueType() == Long.class);
     metric.assertCumulative();
     @SuppressWarnings("unchecked")
-    CellReference<Long> longCellReference = (CellReference<Long>) this;
+    CellReferenceTester<Long> longCellReference = (CellReferenceTester<Long>) this;
     return new CumulativeCellTester(longCellReference);
+  }
+
+  @Override
+  protected MetricReferenceTester<V> getMetricReference() {
+    return metric;
   }
 
   /**

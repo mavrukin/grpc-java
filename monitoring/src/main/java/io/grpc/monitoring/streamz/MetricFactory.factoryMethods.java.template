@@ -1,29 +1,29 @@
 
   /**
-   * Creates a %(number)s-dimensional metric.
+   * Creates a ${number}-dimensional metric.
    *
    * @param name see {@link #newMetric(String, Class, Metadata)}
    *    It should follow Streamz conventions
    * @param valueClass Must match &lt;V>.
    *    see {@link #newMetric(String, Class, Metadata)} for allowed values.
-   * @param metadata see {@link #newMetric(String, Class, Metadata)}%(new_field_params_javadoc)s
+   * @param metadata see {@link #newMetric(String, Class, Metadata)}${new_field_params_javadoc}
    * @return The metric
    */
-  public final <V, %(types)s>
-  Metric%(dimensionality)d<%(types)s, V> newMetric(
+  public final <V, ${types}>
+  Metric${dimensionality}<${types}, V> newMetric(
       String name, Class<V> valueClass, Metadata metadata,
-      %(new_field_params)s) {
-    Metric%(dimensionality)d<%(types)s, V> metric =
-        new Metric%(dimensionality)d<%(types)s, V>(
+      ${new_field_params}) {
+    Metric${dimensionality}<${types}, V> metric =
+        new Metric${dimensionality}<${types}, V>(
             name, ValueTypeTraits.getTraits(valueClass), metadata,
             ImmutableList.of(
-                %(fields)s));
+                ${fields}));
     internalOnCreate(metric);
     return metric;
   }
 
   /**
-   * Creates a %(number)s-dimensional {@code CallbackMetric}.
+   * Creates a ${number}-dimensional {@code CallbackMetric}.
    *
    * <p>This metric cannot be used on its own. It must be used inside a {@link CallbackTrigger}.
    *
@@ -32,75 +32,75 @@
    * @param name see {@link #newMetric(String, Class, Metadata)}
    * @param valueClass Must match &lt;V>.
    *    see {@link #newMetric(String, Class, Metadata)} for allowed values.
-   * @param metadata see {@link #newMetric(String, Class, Metadata)}%(new_field_params_javadoc)s
+   * @param metadata see {@link #newMetric(String, Class, Metadata)}${new_field_params_javadoc}
    * @return The metric
    */
-  public final <V, %(types)s>
-  CallbackMetric%(dimensionality)d<%(types)s, V> newCallbackMetric(
+  public final <V, ${types}>
+  CallbackMetric${dimensionality}<${types}, V> newCallbackMetric(
       String name, Class<V> valueClass, Metadata metadata,
-      %(new_field_params)s) {
-    CallbackMetric%(dimensionality)d<%(types)s, V> metric =
-        new CallbackMetric%(dimensionality)d<%(types)s, V>(
+      ${new_field_params}) {
+    CallbackMetric${dimensionality}<${types}, V> metric =
+        new CallbackMetric${dimensionality}<${types}, V>(
             name, ValueTypeTraits.getTraits(valueClass), metadata,
             ImmutableList.of(
-                %(fields)s));
+                ${fields}));
     internalOnCreate(metric);
     return metric;
   }
 
   /**
-   * Creates a %(number)s-dimensional Counter.
+   * Creates a ${number}-dimensional Counter.
    *
    * @param name see {@link #newMetric(String, Class, Metadata)}
    * @param metadata see {@link #newMetric(String, Class, Metadata)}. A cumulative annotation
-   * is added to this metric.%(new_field_params_javadoc)s
+   * is added to this metric.${new_field_params_javadoc}
    * @return The metric
    */
-  public final <%(types)s>
-  Counter%(dimensionality)d<%(types)s> newCounter(
+  public final <${types}>
+  Counter${dimensionality}<${types}> newCounter(
       String name, Metadata metadata,
-      %(new_field_params)s) {
-    Counter%(dimensionality)d<%(types)s> metric =
-        new Counter%(dimensionality)d<%(types)s >(
+      ${new_field_params}) {
+    Counter${dimensionality}<${types}> metric =
+        new Counter${dimensionality}<${types} >(
             name, ValueTypeTraits.getTraits(Long.class), metadata.setCumulative(),
             ImmutableList.of(
-                %(fields)s));
+                ${fields}));
     internalOnCreate(metric);
     return metric;
   }
 
   /**
-   * Constructs a %(number)s-dimensional EventMetric.
+   * Constructs a ${number}-dimensional EventMetric.
    *
    * @param name see {@link #newMetric(String, Class, Metadata)}
    * @param metadata see {@link #newMetric(String, Class, Metadata)}
    * @param bucketer the bucketing function to be used for the histogram of the
-   *   exported Distribution.%(new_field_params_javadoc)s
+   *   exported Distribution.${new_field_params_javadoc}
    * @return The metric
    */
-  public final <%(types)s>
-  EventMetric%(dimensionality)d<%(types)s> newEventMetric(
+  public final <${types}>
+  EventMetric${dimensionality}<${types}> newEventMetric(
       String name, Bucketer bucketer, Metadata metadata,
-      %(new_field_params)s) {
-    EventMetric%(dimensionality)d<%(types)s> metric =
-            new EventMetric%(dimensionality)d<%(types)s>(
+      ${new_field_params}) {
+    EventMetric${dimensionality}<${types}> metric =
+            new EventMetric${dimensionality}<${types}>(
             name, bucketer, metadata,
-            %(fields)s);
+            ${fields});
     internalOnCreate(metric.getUnderlyingMetric());
     return metric;
   }
 
   /**
-   * Constructs a %(number)s-dimensional EventMetric with default bucketer.
+   * Constructs a ${number}-dimensional EventMetric with default bucketer.
    *
    * @param name see {@link #newMetric(String, Class, Metadata)}
-   * @param metadata see {@link #newMetric(String, Class, Metadata)}%(new_field_params_javadoc)s
+   * @param metadata see {@link #newMetric(String, Class, Metadata)}${new_field_params_javadoc}
    * @return The metric
    */
-  public final <%(types)s>
-  EventMetric%(dimensionality)d<%(types)s> newEventMetric(
+  public final <${types}>
+  EventMetric${dimensionality}<${types}> newEventMetric(
       String name, Metadata metadata,
-      %(new_field_params)s) {
+      ${new_field_params}) {
     return newEventMetric(name, Bucketer.DEFAULT, metadata,
-            %(fields)s);
+            ${fields});
   }
