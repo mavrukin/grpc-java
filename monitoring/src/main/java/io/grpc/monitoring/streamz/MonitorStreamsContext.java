@@ -32,7 +32,7 @@ public class MonitorStreamsContext {
     private final boolean emptyStringMatchesAllMetrics;
     // The next stream index that will be assigned
     private int nextStreamIndex = 0;
-    private final Map<CellKey<?>, Pair<Integer, Long>> streamIndexAndResetTimestamp
+    private final Map<CellKey<?>, StreamIndexResetTimestamp> streamIndexAndResetTimestamp
             = Maps.newHashMap();
 
     /**
@@ -78,12 +78,12 @@ public class MonitorStreamsContext {
     // StreamDefinition is emitted into |streamValue|.
     private int getStreamIndex(GenericCell<?> cell, StreamValue.Builder streamValue) {
         CellKey<?> cellKey = cell.getCellKey();
-        Pair<Integer, Long> indexAndResetTimestamp = streamIndexAndResetTimestamp.get(cellKey);
+        StreamIndexResetTimestamp indexAndResetTimestamp = streamIndexAndResetTimestamp.get(cellKey);
         if (indexAndResetTimestamp != null) {
-            if (indexAndResetTimestamp.second < cell.getResetTimestampMicros()) {
+            if (indexAndResetTimestamp.getResetTimestamp() < cell.getResetTimestampMicros()) {
                 // reset timestamp has advanced - generate a new index
                 indexAndResetTimestamp = null;
-            } else if (indexAndResetTimestamp.second > cell.getResetTimestampMicros()) {
+            } else if (indexAndResetTimestamp.getResetTimestamp() > cell.getResetTimestampMicros()) {
                 // TODO(avrukin) Fix this
                 /* RESET_TIMESTAMPS_MOVED_BACKWARDS.warning(
                         "Streamz cell reset timestamp moving backwards: " + indexAndResetTimestamp.second
@@ -114,11 +114,11 @@ public class MonitorStreamsContext {
             long reset = cell.getResetTimestampMicros();
             streamDefinition.setResetTimestamp(reset);
             streamValue.setStreamDefinition(streamDefinition);
-            indexAndResetTimestamp = Pair.of(nextStreamIndex, reset);
+            indexAndResetTimestamp = new StreamIndexResetTimestamp(nextStreamIndex, reset);
             nextStreamIndex++;
             streamIndexAndResetTimestamp.put(cellKey, indexAndResetTimestamp);
         }
-        return indexAndResetTimestamp.first;
+        return indexAndResetTimestamp.getStreamIndex();
     }
 
     // Returns the small (zero-based) integer which will refer to the metric

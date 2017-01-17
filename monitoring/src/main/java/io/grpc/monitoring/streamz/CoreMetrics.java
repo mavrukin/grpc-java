@@ -2,11 +2,9 @@ package io.grpc.monitoring.streamz;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
-import com.sun.management.UnixOperatingSystemMXBean;
 import io.grpc.monitoring.streamz.proto.RootDescriptor;
 import io.grpc.monitoring.streamz.proto.StreamzAnnouncement.Label;
 import io.grpc.monitoring.streamz.Metadata.Units;
-import io.grpc.monitoring.streamz.VirtualMetric1.DefineCellCallback;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;
@@ -75,7 +73,7 @@ enum CoreMetrics {
     /**
      * Returns pair (cpu user time, cpu system time) of the current process, in seconds.
      */
-    private static Pair<Double, Double> getProcessTime() {
+    private static CPUTime getProcessTime() {
         // TODO(avrukin + jeremymanson) Machine Stats
         /*if (useResourceUsageTime) {
             SystemResourceUsage sysResourceUsage =
@@ -91,12 +89,12 @@ enum CoreMetrics {
         Proc.Stat stat = Proc.getSafeStat("self");
         // The cpu time in proc/self/stat is specified in jiffies, i.e. 1/100 second.
         return Pair.of(0.01 * stat.utime, 0.01 * stat.stime); */
-        return Pair.of(0.0d, 0.0d);
+        return new CPUTime(0.0d, 0.0d);
     }
 
     @SuppressWarnings("unused") // Constant metrics can be untouched.
     private final ConstantMetric<Boolean> found = MetricFactory.getDefault().newConstant(
-            "/presence/found",
+            "grpc.io/presence/found",
             true,
             new Metadata("A trivial, always-true metric that implicitly indicates when the associated " +
                     "target could be found and collected from."));
@@ -106,7 +104,7 @@ enum CoreMetrics {
             .setUnit(Units.MICROSECONDS);
     @SuppressWarnings("unused") // Constant metrics can be untouched.
     private final ConstantMetric<Long> birthTimestamp = MetricFactory.getDefault().newConstant(
-            "/proc/birth_timestamp",
+            "grpc.io/proc/birth_timestamp",
             Utils.getProcessStartTimeMicros(),
             birthMetadata);
 
@@ -114,7 +112,7 @@ enum CoreMetrics {
         Metadata uptimeMetadata = new Metadata(
                 "The uptime of this process in milliseconds").setUnit(Units.MILLISECONDS);
         MetricFactory.getDefault().newMetric(
-                "/proc/uptime",
+                "grpc.io/proc/uptime",
                 Long.class,
                 uptimeMetadata,
                 new Supplier<Long>() {
@@ -127,7 +125,7 @@ enum CoreMetrics {
         Metadata heapMetadata = new Metadata(
                 "The current heap size, in bytes").setUnit(Units.BYTES);
         MetricFactory.getDefault().newMetric(
-                "/proc/memory/heap_size",
+                "grpc.io/proc/memory/heap_size",
                 Long.class,
                 heapMetadata,
                 new Supplier<Long>() {
@@ -216,7 +214,7 @@ enum CoreMetrics {
       final Metadata cpuMetadata = new Metadata("Total CPU time consumed by this process.")
           .setCumulative().setUnit(Units.SECONDS);
       final CallbackMetric0<Double> cpuUsage = MetricFactory.getDefault().newCallbackMetric(
-          "/proc/cpu/usage", Double.class, cpuMetadata);
+          "grpc.io/proc/cpu/usage", Double.class, cpuMetadata);
       MetricFactory.getDefault().newTrigger(cpuUsage, new Runnable() {
         @Override
         public void run() {
@@ -261,7 +259,7 @@ enum CoreMetrics {
             "The name of the host on which this process runs (not necessarily FQDN)");
     @SuppressWarnings("unused") // Constant metrics can be untouched.
     private final ConstantMetric<String> hostname = MetricFactory.getDefault().newConstant(
-            "/proc/hostname",
+            "grpc.io/proc/hostname",
             Utils.getHostname(),
             hostnameMetadata);
 
@@ -280,7 +278,7 @@ enum CoreMetrics {
     // TODO(bhs): Add /build metrics in Java, then deprecate this one.
     @SuppressWarnings("unused") // Constant metrics can be untouched.
     private final ConstantMetric<String> binaryName = MetricFactory.getDefault().newConstant(
-            "/self/monarch_fields/binary_name",
+            "grpc.io/self/monarch_fields/binary_name",
             Utils.getMainClassName(),
             new Metadata("The name of this process's executable or main class"));
 
@@ -377,7 +375,7 @@ enum CoreMetrics {
 
         if (username != null) {
             MetricFactory.getDefault().newConstant(
-                    "/proc/unix_user",
+                    "grpc.io/proc/unix_user",
                     username,
                     new Metadata("The UNIX userid of the owner of this process"));
         }

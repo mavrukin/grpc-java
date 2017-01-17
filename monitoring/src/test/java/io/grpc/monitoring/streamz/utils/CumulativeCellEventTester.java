@@ -2,9 +2,10 @@ package io.grpc.monitoring.streamz.utils;
 
 import com.google.common.annotations.Beta;
 import io.grpc.monitoring.streamz.Distribution;
-import it.unimi.dsi.fastutil.doubles.DoubleArrayList;
 import junit.framework.Assert;
 import junit.framework.AssertionFailedError;
+
+import java.util.Arrays;
 
 /**
  * Keeps track of the value of an EventMetric cell. Can be used to check that
@@ -48,10 +49,10 @@ public class CumulativeCellEventTester {
     } else if (newValue != null) {
       expected = new Distribution(newValue.getBucketer());
     } else if (values.length != 0) {
-      String header = ((message != null) ? (message + " ") : "");
-      String formatted = header + "expected:<" + DoubleArrayList.wrap(values).toString()
-          + "> but metric " + cell.getMetricReference().getMetricName() + " "
-          + cell.getFieldKey() + " is not published";
+      String header = ((message != null) ? (message ) : "");
+      String formatted = String.format(
+              "%s expected:<%s> but metric %s %s is not published", header, Arrays.toString(values),
+              cell.getMetricReference().getMetricName(), cell.getFieldKey());
       throw new AssertionFailedError(formatted);
     }
     for (double value : values) {

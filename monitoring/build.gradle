@@ -23,8 +23,7 @@ dependencies {
             project(":grpc-netty"),
             project(":grpc-protobuf"),
             project(":grpc-stub")
-    testCompile libraries.truth,
-                libraries.fastutil
+    testCompile libraries.truth
 }
 
 configureProtoCompilation()

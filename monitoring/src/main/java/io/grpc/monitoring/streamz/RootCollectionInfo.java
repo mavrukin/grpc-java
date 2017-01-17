@@ -98,7 +98,7 @@ final class RootCollectionInfo {
     /**
      * Data class that contains a single collection schedule for a target.
      *
-     * @see com.google.protos.monitoring.streamz.Monarch.ReadSchedulesResponse.TargetInfo.Schedule
+     * @see io.grpc.protos.monitoring.streamz.Monarch.ReadSchedulesResponse.TargetInfo.Schedule
      */
     static final class TargetSchedule {
         final long samplingPeriodNanos;

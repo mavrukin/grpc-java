@@ -78,8 +78,8 @@ class CallbackCell<V> extends GenericCell<V> {
         }
 
         @Override
-        Pair<Long, V> getTimestampedValue() {
-            return Pair.of(timestampMicros, value);
+        ValueAtTimestamp<V> getTimestampedValue() {
+            return new ValueAtTimestamp<V>(timestampMicros, value);
         }
 
         @Override

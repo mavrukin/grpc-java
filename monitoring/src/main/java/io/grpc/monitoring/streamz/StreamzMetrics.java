@@ -23,10 +23,10 @@ class StreamzMetrics {
     static final CallbackMetric1<CellType, Long> numStoredCellsMetric =
             MetricFactory.getDefault()
                     .newCallbackMetric(
-                            "/streamz/java/num_stored_cells",
+                            "grpc.io/streamz/java/num_stored_cells",
                             Long.class,
                             new Metadata("Number of stored cell instances per class type"),
-                            Field.ofEnumAsString(CellType.class, "type"))
+                            Field.ofEnumAsString(CellType.class, "/type"))
                     .createTrigger(
                             new Runnable() {
                                 @Override

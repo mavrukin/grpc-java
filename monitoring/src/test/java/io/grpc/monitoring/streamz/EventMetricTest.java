@@ -18,7 +18,7 @@ public class EventMetricTest {
   @Test
   public void testAnnotate() {
     EventMetric0 m = factory.newEventMetric(
-        "/test/eventmetric/annotate", Bucketer.DEFAULT,
+        "test.com/test/eventmetric/annotate", Bucketer.DEFAULT,
         new Metadata("test metric").setForEyesOnly()
           .setDeprecation("old, do not use!"));
         // The line above is L19

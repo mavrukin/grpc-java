@@ -46,8 +46,8 @@ abstract class GenericCell<V> {
      * metric scrape to increase timestamp sharing, which reduces the amount
      * of data that has to be stored.
      */
-    Pair<Long, V> getTimestampedValue() {
-        return Pair.of(Utils.getCurrentTimeMicros(), getValue());
+    ValueAtTimestamp<V> getTimestampedValue() {
+        return new ValueAtTimestamp<V>(Utils.getCurrentTimeMicros(), getValue());
     }
 
     @Override
