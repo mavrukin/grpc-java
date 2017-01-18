@@ -1,5 +1,5 @@
 /*
- * Copyright 2015, Google Inc. All rights reserved.
+ * Copyright 2017, Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,66 +29,56 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package io.grpc.internal;
+package io.grpc.testing;
 
-import io.grpc.Attributes;
-import io.grpc.Compressor;
-import io.grpc.Decompressor;
-import io.grpc.Status;
+import io.grpc.ExperimentalApi;
+import io.grpc.MethodDescriptor;
+import io.grpc.MethodDescriptor.MethodType;
 
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 
 /**
- * An implementation of {@link ClientStream} that silently does nothing for the operations.
+ * A collection of method descriptor constructors useful for tests.  These are useful if you need
+ * a descriptor, but don't really care how it works.
  */
-public class NoopClientStream implements ClientStream {
-  public static NoopClientStream INSTANCE = new NoopClientStream();
+@ExperimentalApi("https://github.com/grpc/grpc-java/issues/2600")
+public final class TestMethodDescriptors {
+  private TestMethodDescriptors() {}
 
-  @Override
-  public void setAuthority(String authority) {}
-
-  @Override
-  public void start(ClientStreamListener listener) {}
-
-  @Override
-  public Attributes getAttributes() {
-    return Attributes.EMPTY;
+  /**
+   * Creates a new method descriptor that always creates zero length messages, and always parses to
+   * null objects.
+   */
+  public static MethodDescriptor<Void, Void> noopMethod() {
+    return noopMethod("service_foo", "method_bar");
   }
 
-  @Override
-  public void request(int numMessages) {}
-
-  @Override
-  public void writeMessage(InputStream message) {}
-
-  @Override
-  public void flush() {}
-
-  @Override
-  public boolean isReady() {
-    return false;
+  private static MethodDescriptor<Void, Void> noopMethod(
+      String serviceName, String methodName) {
+    return MethodDescriptor.create(
+        MethodType.UNARY,
+        MethodDescriptor.generateFullMethodName(serviceName, methodName),
+        noopMarshaller(),
+        noopMarshaller());
   }
 
-  @Override
-  public void cancel(Status status) {}
-
-  @Override
-  public void halfClose() {}
-
-  @Override
-  public void setMessageCompression(boolean enable) {
-    // noop
+  /**
+   * Creates a new marshaller that does nothing.
+   */
+  public static MethodDescriptor.Marshaller<Void> noopMarshaller() {
+    return new NoopMarshaller();
   }
 
-  @Override
-  public void setCompressor(Compressor compressor) {}
+  private static final class NoopMarshaller implements MethodDescriptor.Marshaller<Void> {
+    @Override
+    public InputStream stream(Void value) {
+      return new ByteArrayInputStream(new byte[]{});
+    }
 
-  @Override
-  public void setDecompressor(Decompressor decompressor) {}
-
-  @Override
-  public void setMaxInboundMessageSize(int maxSize) {}
-
-  @Override
-  public void setMaxOutboundMessageSize(int maxSize) {}
+    @Override
+    public Void parse(InputStream stream) {
+      return null;
+    }
+  }
 }
