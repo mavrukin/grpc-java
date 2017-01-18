@@ -2,8 +2,8 @@ package io.grpc.monitoring.streamz.utils;
 
 import com.google.common.annotations.Beta;
 import io.grpc.monitoring.streamz.Distribution;
-import junit.framework.Assert;
 import junit.framework.AssertionFailedError;
+import org.junit.Assert;
 
 import java.util.Arrays;
 

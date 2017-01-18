@@ -9,11 +9,11 @@ import io.grpc.monitoring.streamz.Field;
 import io.grpc.monitoring.streamz.Metadata;
 import io.grpc.monitoring.streamz.proto.MetricAnnotation;
 import io.grpc.monitoring.streamz.proto.MetricDefinition;
-import io.grpc.monitoring.streamz.proto.Types.FieldType;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import junit.framework.Assert;
+
+import org.junit.Assert;
 
 public class MetricReferenceTester<V> extends MetricReference<V> {
   private AtomicBoolean validated = new AtomicBoolean(false);
@@ -30,6 +30,7 @@ public class MetricReferenceTester<V> extends MetricReference<V> {
     this.tester = tester;
 
     if (Enum.class.isAssignableFrom(valueType)) {
+      @SuppressWarnings("rawtypes")
       Class enumValueType = valueType; // Dropping the generics to make translation possible.
       // The safety of this typecast is ensured by StreamzTester.addEnumTranslator.
       @SuppressWarnings("unchecked")

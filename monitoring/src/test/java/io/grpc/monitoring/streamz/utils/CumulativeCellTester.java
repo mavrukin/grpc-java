@@ -1,7 +1,8 @@
 package io.grpc.monitoring.streamz.utils;
 
 import com.google.common.annotations.Beta;
-import junit.framework.Assert;
+
+import org.junit.Assert;
 
 /**
  * Keeps track of the value of a cumulative Long-valued cell. It can

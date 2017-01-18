@@ -73,7 +73,7 @@ import javax.annotation.Generated;
 @Generated(value = "${generator}")
 public class StreamzTester {
 
-  private final Map<Class<? extends Enum<?>>, Function<String, ? extends Enum>> enumTranslators =
+  private final Map<Class<? extends Enum<?>>, Function<String, ? extends Enum<?>>> enumTranslators =
       Maps.newIdentityHashMap();
   private final MetricReader reader;
 

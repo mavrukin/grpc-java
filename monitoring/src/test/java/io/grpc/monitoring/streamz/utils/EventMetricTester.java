@@ -12,8 +12,9 @@ import io.grpc.monitoring.streamz.Distribution;
 import java.util.Collection;
 import java.util.Map;
 import javax.annotation.CheckReturnValue;
-import junit.framework.Assert;
+
 import junit.framework.AssertionFailedError;
+import org.junit.Assert;
 
 /**
  * Keeps track of the value of a cumulative Distribution-valued metric (usually, an EventMetric).
@@ -360,11 +361,8 @@ public class EventMetricTester {
 
   private void checkDistributionsEqual(String message, FieldKey key, Distribution expected,
       Distribution found) {
-    String preface = "";
-    if (message != null) {
-      preface = message + ": ";
-    }
-    preface += "for cell " + key + ": ";
+
+    String preface = String.format("%sfor cell %s: ", (message != null ? ": " : ""), key);
     Assert.assertEquals(preface + "Distribution bucketing doesn't match.",
         expected.getBucketer(), found.getBucketer());
     Assert.assertEquals(preface + "Number of recorded values doesn't match.",

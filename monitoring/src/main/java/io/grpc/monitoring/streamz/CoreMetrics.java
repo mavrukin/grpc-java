@@ -168,7 +168,7 @@ enum CoreMetrics {
                 .setCumulative().setUnit(Units.SECONDS);
         final CallbackMetric0<Double> cpuUsage =
                 MetricFactory.getDefault().newCallbackMetric(
-                        "/proc/cpu/usage", Double.class, cpuMetadata
+                        "grpc.io/proc/cpu/usage", Double.class, cpuMetadata
                 );
 
         MetricFactory.getDefault().newTrigger(

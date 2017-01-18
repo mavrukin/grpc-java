@@ -40,6 +40,13 @@ idea {
     }
 }
 
+
+def NUMBERS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
+def ORDERING = ["0th", "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth",
+                "tenth"]
+def engine = new groovy.text.SimpleTemplateEngine()
+def max_metrics_dimensions = 10
+
 def write_file = { String source_folder, String template_file, String destination_file_name, String destination_dir, variables ->
     println("Writing ${template_file} to ${destination_dir}/${destination_file_name}")
     def template = new File(source_folder, template_file).text
@@ -48,9 +55,99 @@ def write_file = { String source_folder, String template_file, String destinatio
         target_dir.mkdirs()
     }
     def file_name = new File(target_dir, destination_file_name)
-    def engine = new groovy.text.SimpleTemplateEngine()
     def processed_template = engine.createTemplate(template).make(variables)
     file_name.write(processed_template.toString())
+}
+
+def get_template_vars = { dimensionality ->
+    def type_javadoc = new StringBuilder()
+    def types_erased = []
+    def types = []
+    def params = []
+    def values = []
+    def field_params = []
+    def field_params_javadoc = new StringBuilder()
+    def new_field_params_javadoc = new StringBuilder()
+    def fields_created = []
+    def new_field_params = []
+    def fields = []
+    def field_values = []
+    def field_names_javadoc = new StringBuilder()
+    def field_names_params = []
+    def field_names = []
+
+    (1..dimensionality).each { i ->
+        type_javadoc.append(" * @param <F${i}> The type of the ${ORDERING.get(i)} metric field.\n")
+        types.add("F${i}")
+        types_erased.add("Object")
+        params.add("F${i} field${i}")
+        values.add("field${i}")
+        field_params.add("Class<F${i}> field${i}Class, String field${i}Name")
+        new_field_params.add("Field<F${i}> field${i}")
+        field_values.add("field${i}Class, field${i}Name")
+        field_params_javadoc.append(
+                " * @param field${i}Class The class of field${i}: String, Boolean, or Integer\n" +
+                        " * @param field${i}Name The name of field${i}\n")
+        new_field_params_javadoc.append(" * @param field${i} The ${ORDERING.get(i)} field")
+        field_names_javadoc.append(" * @param field${i}Name The name of field ${i}")
+        field_names_params.add("String field${i}Name")
+        field_names.add("field${i}Name")
+        fields_created.add("new Field<F${i}>(field${i}Name, field${i}Class, null")
+        fields.add("field${i}")
+    }
+
+    def template_vars = [
+            generator               : ":grpc-monitoring:generateCodeFromTemplates",
+            dimensionality          : dimensionality,
+            number                  : NUMBERS.get(dimensionality),
+            types                   : String.join(", ", types),
+            types_erased            : String.join(", ", types_erased),
+            params                  : String.join(",\n      ", params),
+            values                  : String.join(", ", values),
+            field_params            : String.join(",\n      ", field_params),
+            field_values            : String.join(",\n      ", field_values),
+            fields_created          : String.join(",\n      ", fields_created),
+            new_field_params        : String.join(",\n      ", new_field_params),
+            fields                  : String.join(",\n            ", fields),
+            field_params_javadoc    : field_params_javadoc.toString(),
+            new_field_params_javadoc: new_field_params_javadoc.toString(),
+            field_names_params      : String.join(",\n      ", field_names_params),
+            field_names             : String.join(",", field_names),
+            field_names_javadoc     : field_names_javadoc.toString(),
+            type_javadoc            : type_javadoc.toString()
+    ]
+
+    return template_vars
+}
+
+task generateTestCodeFromTemplate(dependsOn: ":grpc-monitoring:generateTestProto") {
+    tasks.getByPath(":grpc-monitoring:compileTestJava").dependsOn(":grpc-monitoring:generateTestCodeFromTemplate")
+    doLast {
+        println("Generating TEST code from templates")
+
+        def test_source_directory = "${projectDir}/src/test/java/io/grpc/monitoring/streamz"
+        def generated_test_destination_directory = "${projectDir}/src/generated/test/java/io/grpc/monitoring/streamz";
+        def test_factory_methods_templates =
+                new File("${projectDir}/src/test/java/io/grpc/monitoring/streamz/utils/StreamzTester.factoryMethods.java.template").text
+        def test_factory_methods = new StringBuilder()
+
+        (1..max_metrics_dimensions).each { dimensionality ->
+            def template_vars = get_template_vars(dimensionality)
+
+            write_file(new File(test_source_directory, "utils").path, "MetricReferenceTester.java.template",
+                    "MetricReferenceTester${dimensionality}.java", new File(generated_test_destination_directory, "utils").path,
+                    template_vars)
+
+            test_factory_methods.append(engine.createTemplate(test_factory_methods_templates).make(template_vars).toString())
+        }
+
+        def template_vars = [
+                "generator": ":grpc-monitoring:generateCodeFromTemplates",
+                "factory_methods": test_factory_methods.toString()
+        ]
+        write_file(new File(test_source_directory, "utils").path, "StreamzTester.java.template", "StreamzTester.java",
+                new File(generated_test_destination_directory, "utils").path, template_vars)
+    }
 }
 
 task generateCodeFromTemplates(dependsOn: ":grpc-monitoring:generateProto") {
@@ -58,12 +155,8 @@ task generateCodeFromTemplates(dependsOn: ":grpc-monitoring:generateProto") {
     doLast {
         println("Generating code from templates")
 
-        def NUMBERS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
-        def ORDERING = ["0th", "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth",
-                        "tenth"]
         def FACTORY_METHOD_CLASSES = ["MetricFactory"]
         def DEPRECATED_ENTITIES_MAX_DIMENSIONALITY = 7
-        def max_metrics_dimensions = 10
 
         def factory_methods_templates = [:]
         def factory_methods = [:]
@@ -77,83 +170,18 @@ task generateCodeFromTemplates(dependsOn: ":grpc-monitoring:generateProto") {
 
         def source_directory = "${projectDir}/src/main/java/io/grpc/monitoring/streamz"
         def generated_destination_directory = "${projectDir}/src/generated/main/java/io/grpc/monitoring/streamz"
-        def test_source_directory = "${projectDir}/src/test/java/io/grpc/monitoring/streamz"
-        def generated_test_destination_directory = "${projectDir}/src/generated/test/java/io/grpc/monitoring/streamz";
-        def engine = new groovy.text.SimpleTemplateEngine()
 
-        def test_factory_methods_templates =
-                new File("${projectDir}/src/test/java/io/grpc/monitoring/streamz/utils/StreamzTester.factoryMethods.java.template").text
-        def test_factory_methods = new StringBuilder()
         (1..max_metrics_dimensions).each { dimensionality ->
-            def type_javadoc = new StringBuilder()
-            def types_erased = []
-            def types = []
-            def params = []
-            def values = []
-            def field_params = []
-            def field_params_javadoc = new StringBuilder()
-            def new_field_params_javadoc = new StringBuilder()
-            def fields_created = []
-            def new_field_params = []
-            def fields = []
-            def field_values = []
-            def field_names_javadoc = new StringBuilder()
-            def field_names_params = []
-            def field_names = []
-
-            (1..dimensionality).each { i ->
-                type_javadoc.append(" * @param <F${i}> The type of the ${ORDERING.get(i)} metric field.\n")
-                types.add("F${i}")
-                types_erased.add("Object")
-                params.add("F${i} field${i}")
-                values.add("field${i}")
-                field_params.add("Class<F${i}> field${i}Class, String field${i}Name")
-                new_field_params.add("Field<F${i}> field${i}")
-                field_values.add("field${i}Class, field${i}Name")
-                field_params_javadoc.append(
-                        " * @param field${i}Class The class of field${i}: String, Boolean, or Integer\n" +
-                                " * @param field${i}Name The name of field${i}\n")
-                new_field_params_javadoc.append(" * @param field${i} The ${ORDERING.get(i)} field")
-                field_names_javadoc.append(" * @param field${i}Name The name of field ${i}")
-                field_names_params.add("String field${i}Name")
-                field_names.add("field${i}Name")
-                fields_created.add("new Field<F${i}>(field${i}Name, field${i}Class, null")
-                fields.add("field${i}")
-            }
-
-            def template_vars = [
-                    generator               : ":grpc-monitoring:generateCodeFromTemplates",
-                    dimensionality          : dimensionality,
-                    number                  : NUMBERS.get(dimensionality),
-                    types                   : String.join(", ", types),
-                    types_erased            : String.join(", ", types_erased),
-                    params                  : String.join(",\n      ", params),
-                    values                  : String.join(", ", values),
-                    field_params            : String.join(",\n      ", field_params),
-                    field_values            : String.join(",\n      ", field_values),
-                    fields_created          : String.join(",\n      ", fields_created),
-                    new_field_params        : String.join(",\n      ", new_field_params),
-                    fields                  : String.join(",\n            ", fields),
-                    field_params_javadoc    : field_params_javadoc.toString(),
-                    new_field_params_javadoc: new_field_params_javadoc.toString(),
-                    field_names_params      : String.join(",\n      ", field_names_params),
-                    field_names             : String.join(",", field_names),
-                    field_names_javadoc     : field_names_javadoc.toString(),
-                    type_javadoc            : type_javadoc.toString()
-            ]
-
+            def template_vars = get_template_vars(dimensionality)
             write_file(source_directory, "Metric.java.template", "Metric${dimensionality}.java",
                     generated_destination_directory, template_vars)
             write_file(source_directory, "CallbackMetric.java.template", "CallbackMetric${dimensionality}.java",
                     generated_destination_directory, template_vars)
             write_file(source_directory, "Counter.java.template", "Counter${dimensionality}.java",
-                    generated_destination_directory, template_vars);
+                    generated_destination_directory, template_vars)
             write_file(new File(source_directory, "utils").path, "MetricReference.java.template",
                     "MetricReference${dimensionality}.java", new File(generated_destination_directory, "utils").path,
                      template_vars)
-            write_file(new File(test_source_directory, "utils").path, "MetricReferenceTester.java.template",
-                    "MetricReferenceTester${dimensionality}.java", new File(generated_test_destination_directory, "utils").path,
-                    template_vars)
             write_file(source_directory, "EventMetric.java.template", "EventMetric${dimensionality}.java",
                     generated_destination_directory, template_vars)
             if (dimensionality <= DEPRECATED_ENTITIES_MAX_DIMENSIONALITY) {
@@ -166,8 +194,6 @@ task generateCodeFromTemplates(dependsOn: ":grpc-monitoring:generateProto") {
                 def processed_template = engine.createTemplate(factory_methods_templates[className]).make(template_vars)
                 factory_methods[className].append(processed_template.toString())
             }
-
-            test_factory_methods.append(engine.createTemplate(test_factory_methods_templates).make(template_vars).toString())
         }
 
         def template_vars = [
@@ -177,12 +203,5 @@ task generateCodeFromTemplates(dependsOn: ":grpc-monitoring:generateProto") {
             template_vars["factory_methods_${className}"] = factory_methods[className]
         }
         write_file(source_directory, "MetricFactory.java.template", "MetricFactory.java", generated_destination_directory, template_vars)
-
-        template_vars = [
-                "generator": ":grpc-monitoring:generateCodeFromTemplates",
-                "factory_methods": test_factory_methods.toString()
-        ]
-        write_file(new File(test_source_directory, "utils").path, "StreamzTester.java.template", "StreamzTester.java",
-                   new File(generated_test_destination_directory, "utils").path, template_vars)
     }
 }
