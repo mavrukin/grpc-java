@@ -36,7 +36,6 @@ import static io.netty.channel.ChannelOption.SO_KEEPALIVE;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Ticker;
-
 import io.grpc.Attributes;
 import io.grpc.CallOptions;
 import io.grpc.Metadata;
@@ -59,12 +58,10 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http2.StreamBufferingEncoder.Http2ChannelClosedException;
 import io.netty.util.AsciiString;
-
 import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.Map;
 import java.util.concurrent.Executor;
-
 import javax.annotation.Nullable;
 
 /**
@@ -168,11 +165,6 @@ class NettyClientTransport implements ConnectionClientTransport {
     lifecycleManager = new ClientTransportLifecycleManager(
         Preconditions.checkNotNull(transportListener, "listener"));
 
-    if (enableKeepAlive) {
-      keepAliveManager = new KeepAliveManager(this, channel.eventLoop(), keepAliveDelayNanos,
-          keepAliveTimeoutNanos);
-    }
-
     handler = newHandler();
     HandlerSettings.setAutoWindow(handler);
 
@@ -197,8 +189,9 @@ class NettyClientTransport implements ConnectionClientTransport {
      * that it may begin buffering writes.
      */
     b.handler(negotiationHandler);
+    channel = b.register().channel();
     // Start the connection operation to the server.
-    channel = b.connect(address).addListener(new ChannelFutureListener() {
+    channel.connect(address).addListener(new ChannelFutureListener() {
       @Override
       public void operationComplete(ChannelFuture future) throws Exception {
         if (!future.isSuccess()) {
@@ -212,7 +205,7 @@ class NettyClientTransport implements ConnectionClientTransport {
           future.channel().pipeline().fireExceptionCaught(future.cause());
         }
       }
-    }).channel();
+    });
     // Start the write queue as soon as the channel is constructed
     handler.startWriteQueue(channel);
     // This write will have no effect, yet it will only complete once the negotiationHandler
@@ -236,6 +229,12 @@ class NettyClientTransport implements ConnectionClientTransport {
             Status.INTERNAL.withDescription("Connection closed with unknown cause"));
       }
     });
+
+    if (enableKeepAlive) {
+      keepAliveManager = new KeepAliveManager(this, channel.eventLoop(), keepAliveDelayNanos,
+          keepAliveTimeoutNanos);
+    }
+
     return null;
   }
 
@@ -268,7 +267,7 @@ class NettyClientTransport implements ConnectionClientTransport {
   }
 
   @Override
-  public Attributes getAttrs() {
+  public Attributes getAttributes() {
     // TODO(zhangkun83): fill channel security attributes
     return Attributes.EMPTY;
   }
@@ -276,6 +275,11 @@ class NettyClientTransport implements ConnectionClientTransport {
   @VisibleForTesting
   Channel channel() {
     return channel;
+  }
+
+  @VisibleForTesting
+  KeepAliveManager keepAliveManager() {
+    return keepAliveManager;
   }
 
   /**

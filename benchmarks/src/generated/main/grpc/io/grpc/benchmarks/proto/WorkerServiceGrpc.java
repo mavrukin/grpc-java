@@ -18,9 +18,9 @@ import static io.grpc.stub.ServerCalls.asyncUnimplementedStreamingCall;
 /**
  */
 @javax.annotation.Generated(
-    value = "by gRPC proto compiler (version 1.1.0-SNAPSHOT)",
+    value = "by gRPC proto compiler (version 1.2.0-SNAPSHOT)",
     comments = "Source: services.proto")
-public class WorkerServiceGrpc {
+public final class WorkerServiceGrpc {
 
   private WorkerServiceGrpc() {}
 
@@ -333,7 +333,7 @@ public class WorkerServiceGrpc {
   private static final int METHODID_RUN_SERVER = 2;
   private static final int METHODID_RUN_CLIENT = 3;
 
-  private static class MethodHandlers<Req, Resp> implements
+  private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
       io.grpc.stub.ServerCalls.ServerStreamingMethod<Req, Resp>,
       io.grpc.stub.ServerCalls.ClientStreamingMethod<Req, Resp>,
@@ -341,7 +341,7 @@ public class WorkerServiceGrpc {
     private final WorkerServiceImplBase serviceImpl;
     private final int methodId;
 
-    public MethodHandlers(WorkerServiceImplBase serviceImpl, int methodId) {
+    MethodHandlers(WorkerServiceImplBase serviceImpl, int methodId) {
       this.serviceImpl = serviceImpl;
       this.methodId = methodId;
     }
@@ -395,13 +395,13 @@ public class WorkerServiceGrpc {
       synchronized (WorkerServiceGrpc.class) {
         result = serviceDescriptor;
         if (result == null) {
-          serviceDescriptor = result = new io.grpc.ServiceDescriptor(
-              SERVICE_NAME,
-              new WorkerServiceDescriptorSupplier(),
-              METHOD_RUN_SERVER,
-              METHOD_RUN_CLIENT,
-              METHOD_CORE_COUNT,
-              METHOD_QUIT_WORKER);
+          serviceDescriptor = result = io.grpc.ServiceDescriptor.newBuilder(SERVICE_NAME)
+              .setSchemaDescriptor(new WorkerServiceDescriptorSupplier())
+              .addMethod(METHOD_RUN_SERVER)
+              .addMethod(METHOD_RUN_CLIENT)
+              .addMethod(METHOD_CORE_COUNT)
+              .addMethod(METHOD_QUIT_WORKER)
+              .build();
         }
       }
     }

@@ -40,7 +40,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-
 import io.grpc.CallOptions;
 import io.grpc.ClientCall;
 import io.grpc.ManagedChannel;
@@ -56,14 +55,6 @@ import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.ServerCalls.NoopStreamObserver;
 import io.grpc.stub.ServerCallsTest.IntegerMarshaller;
 import io.grpc.testing.NoopClientCall;
-
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-import org.mockito.MockitoAnnotations;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -74,6 +65,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+import org.mockito.MockitoAnnotations;
 
 /**
  * Unit tests for {@link ClientCalls}.
@@ -81,11 +78,13 @@ import java.util.concurrent.atomic.AtomicReference;
 @RunWith(JUnit4.class)
 public class ClientCallsTest {
 
-  private static final MethodDescriptor<Integer, Integer> STREAMING_METHOD = MethodDescriptor
-      .create(
-          MethodDescriptor.MethodType.BIDI_STREAMING,
-          "some/method",
-          new IntegerMarshaller(), new IntegerMarshaller());
+  private static final MethodDescriptor<Integer, Integer> STREAMING_METHOD =
+      MethodDescriptor.<Integer, Integer>newBuilder()
+          .setType(MethodDescriptor.MethodType.BIDI_STREAMING)
+          .setFullMethodName("some/method")
+          .setRequestMarshaller(new IntegerMarshaller())
+          .setResponseMarshaller(new IntegerMarshaller())
+          .build();
 
   private Server server;
   private ManagedChannel channel;

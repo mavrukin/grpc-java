@@ -33,13 +33,10 @@ package io.grpc.internal;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-
 import io.grpc.Metadata;
 import io.grpc.Status;
-
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import javax.annotation.Nullable;
 
 /**
@@ -79,8 +76,8 @@ public abstract class AbstractClientStream2 extends AbstractStream2
      * Tears down the stream, typically in the event of a timeout. This method may be called
      * multiple times and from any thread.
      *
-     * <p>This is a clone of {@link ClientStream#cancel()}; {@link AbstractClientStream2#cancel}
-     * delegates to this method.
+     * <p>This is a clone of {@link ClientStream#cancel(Status)};
+     * {@link AbstractClientStream2#cancel} delegates to this method.
      */
     void cancel(Status status);
   }

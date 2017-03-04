@@ -37,12 +37,9 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import com.google.common.truth.ComparableSubject;
 import com.google.common.truth.FailureStrategy;
 import com.google.common.truth.SubjectFactory;
-
 import io.grpc.Deadline;
-
 import java.math.BigInteger;
 import java.util.concurrent.TimeUnit;
-
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
@@ -95,7 +92,7 @@ public final class DeadlineSubject extends ComparableSubject<DeadlineSubject, De
    * A partially specified proposition about an approximate relationship to a {@code deadline}
    * subject using a tolerance.
    */
-  public abstract class TolerantDeadlineComparison {
+  public abstract static class TolerantDeadlineComparison {
 
     private TolerantDeadlineComparison() {}
 
@@ -113,6 +110,8 @@ public final class DeadlineSubject extends ComparableSubject<DeadlineSubject, De
      * @deprecated {@link Object#equals(Object)} is not supported on TolerantDeadlineComparison
      *     If you meant to compare deadlines, use {@link #of(Deadline)} instead.
      */
+    // Deprecation used to signal visual warning in IDE for the unaware users.
+    // This method is created as a precaution and won't be removed as part of deprecation policy.
     @Deprecated
     @Override
     public boolean equals(@Nullable Object o) {
@@ -126,6 +125,8 @@ public final class DeadlineSubject extends ComparableSubject<DeadlineSubject, De
      * @throws UnsupportedOperationException always
      * @deprecated {@link Object#hashCode()} is not supported on TolerantDeadlineComparison
      */
+    // Deprecation used to signal visual warning in IDE for the unaware users.
+    // This method is created as a precaution and won't be removed as part of deprecation policy.
     @Deprecated
     @Override
     public int hashCode() {

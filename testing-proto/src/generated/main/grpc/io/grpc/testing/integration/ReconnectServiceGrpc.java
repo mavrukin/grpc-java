@@ -21,9 +21,9 @@ import static io.grpc.stub.ServerCalls.asyncUnimplementedStreamingCall;
  * </pre>
  */
 @javax.annotation.Generated(
-    value = "by gRPC proto compiler (version 1.1.0-SNAPSHOT)",
+    value = "by gRPC proto compiler (version 1.2.0-SNAPSHOT)",
     comments = "Source: io/grpc/testing/integration/test.proto")
-public class ReconnectServiceGrpc {
+public final class ReconnectServiceGrpc {
 
   private ReconnectServiceGrpc() {}
 
@@ -228,7 +228,7 @@ public class ReconnectServiceGrpc {
   private static final int METHODID_START = 0;
   private static final int METHODID_STOP = 1;
 
-  private static class MethodHandlers<Req, Resp> implements
+  private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
       io.grpc.stub.ServerCalls.ServerStreamingMethod<Req, Resp>,
       io.grpc.stub.ServerCalls.ClientStreamingMethod<Req, Resp>,
@@ -236,7 +236,7 @@ public class ReconnectServiceGrpc {
     private final ReconnectServiceImplBase serviceImpl;
     private final int methodId;
 
-    public MethodHandlers(ReconnectServiceImplBase serviceImpl, int methodId) {
+    MethodHandlers(ReconnectServiceImplBase serviceImpl, int methodId) {
       this.serviceImpl = serviceImpl;
       this.methodId = methodId;
     }
@@ -284,11 +284,11 @@ public class ReconnectServiceGrpc {
       synchronized (ReconnectServiceGrpc.class) {
         result = serviceDescriptor;
         if (result == null) {
-          serviceDescriptor = result = new io.grpc.ServiceDescriptor(
-              SERVICE_NAME,
-              new ReconnectServiceDescriptorSupplier(),
-              METHOD_START,
-              METHOD_STOP);
+          serviceDescriptor = result = io.grpc.ServiceDescriptor.newBuilder(SERVICE_NAME)
+              .setSchemaDescriptor(new ReconnectServiceDescriptorSupplier())
+              .addMethod(METHOD_START)
+              .addMethod(METHOD_STOP)
+              .build();
         }
       }
     }

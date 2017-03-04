@@ -28,37 +28,37 @@ Download [the JARs][]. Or for Maven with non-Android, add to your `pom.xml`:
 <dependency>
   <groupId>io.grpc</groupId>
   <artifactId>grpc-netty</artifactId>
-  <version>1.0.3</version>
+  <version>1.1.2</version>
 </dependency>
 <dependency>
   <groupId>io.grpc</groupId>
   <artifactId>grpc-protobuf</artifactId>
-  <version>1.0.3</version>
+  <version>1.1.2</version>
 </dependency>
 <dependency>
   <groupId>io.grpc</groupId>
   <artifactId>grpc-stub</artifactId>
-  <version>1.0.3</version>
+  <version>1.1.2</version>
 </dependency>
 ```
 
 Or for Gradle with non-Android, add to your dependencies:
 ```gradle
-compile 'io.grpc:grpc-netty:1.0.3'
-compile 'io.grpc:grpc-protobuf:1.0.3'
-compile 'io.grpc:grpc-stub:1.0.3'
+compile 'io.grpc:grpc-netty:1.1.2'
+compile 'io.grpc:grpc-protobuf:1.1.2'
+compile 'io.grpc:grpc-stub:1.1.2'
 ```
 
 For Android client, use `grpc-okhttp` instead of `grpc-netty` and
 `grpc-protobuf-lite` or `grpc-protobuf-nano` instead of `grpc-protobuf`:
 ```gradle
-compile 'io.grpc:grpc-okhttp:1.0.3'
-compile 'io.grpc:grpc-protobuf-lite:1.0.3'
-compile 'io.grpc:grpc-stub:1.0.3'
+compile 'io.grpc:grpc-okhttp:1.1.2'
+compile 'io.grpc:grpc-protobuf-lite:1.1.2'
+compile 'io.grpc:grpc-stub:1.1.2'
 ```
 
 [the JARs]:
-http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22io.grpc%22%20AND%20v%3A%221.0.3%22
+http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22io.grpc%22%20AND%20v%3A%221.1.2%22
 
 Development snapshots are available in [Sonatypes's snapshot
 repository](https://oss.sonatype.org/content/repositories/snapshots/).
@@ -87,7 +87,7 @@ For protobuf-based codegen integrated with the Maven build system, you can use
       <configuration>
         <protocArtifact>com.google.protobuf:protoc:3.0.2:exe:${os.detected.classifier}</protocArtifact>
         <pluginId>grpc-java</pluginId>
-        <pluginArtifact>io.grpc:protoc-gen-grpc-java:1.0.3:exe:${os.detected.classifier}</pluginArtifact>
+        <pluginArtifact>io.grpc:protoc-gen-grpc-java:1.1.2:exe:${os.detected.classifier}</pluginArtifact>
       </configuration>
       <executions>
         <execution>
@@ -127,7 +127,7 @@ protobuf {
   }
   plugins {
     grpc {
-      artifact = 'io.grpc:protoc-gen-grpc-java:1.0.3'
+      artifact = 'io.grpc:protoc-gen-grpc-java:1.1.2'
     }
   }
   generateProtoTasks {
@@ -230,8 +230,10 @@ gRPC comes with three Transport implementations:
 * [Server Stream Listener](https://github.com/google/grpc-java/blob/master/core/src/main/java/io/grpc/internal/ServerStreamListener.java)
 
 
-### Examples
+Examples
+--------
 
-Tests showing how these layers are composed to execute calls using protobuf
-messages can be found here
-https://github.com/google/grpc-java/tree/master/interop-testing/src/main/java/io/grpc/testing/integration
+The [examples](https://github.com/grpc/grpc-java/tree/master/examples)
+and the
+[Android example](https://github.com/grpc/grpc-java/tree/master/examples/android) are standalone projects that
+showcase the usage of gRPC.

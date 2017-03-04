@@ -60,7 +60,7 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.MoreExecutors;
-
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.StatusException;
@@ -87,7 +87,8 @@ import io.netty.handler.codec.http2.Http2LocalFlowController;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.handler.codec.http2.Http2Stream;
 import io.netty.util.AsciiString;
-
+import java.io.InputStream;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Rule;
@@ -99,9 +100,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import java.io.InputStream;
-import java.util.List;
-
 /**
  * Tests for {@link NettyClientHandler}.
  */
@@ -111,6 +109,7 @@ public class NettyClientHandlerTest extends NettyHandlerTestBase<NettyClientHand
   private Http2Headers grpcHeaders;
   private long nanoTime; // backs a ticker, for testing ping round-trip time measurement
   private int flowControlWindow = DEFAULT_WINDOW_SIZE;
+  private int maxHeaderListSize = Integer.MAX_VALUE;
   private int streamId = 3;
   private ClientTransportLifecycleManager lifecycleManager;
   private KeepAliveManager mockKeepAliveManager = null;
@@ -539,6 +538,7 @@ public class NettyClientHandlerTest extends NettyHandlerTestBase<NettyClientHand
     createStream();
   }
 
+  @CanIgnoreReturnValue
   private ChannelFuture sendPing(PingCallback callback) {
     return enqueue(new SendPingCommand(callback, MoreExecutors.directExecutor()));
   }
@@ -548,11 +548,13 @@ public class NettyClientHandlerTest extends NettyHandlerTestBase<NettyClientHand
     channelRead(serializedSettings);
   }
 
+  @CanIgnoreReturnValue
   private ChannelFuture createStream() throws Exception {
     ChannelFuture future = enqueue(new CreateStreamCommand(grpcHeaders, streamTransportState));
     return future;
   }
 
+  @CanIgnoreReturnValue
   private ChannelFuture cancelStream(Status status) throws Exception {
     return enqueue(new CancelClientStreamCommand(streamTransportState, status));
   }
@@ -573,7 +575,7 @@ public class NettyClientHandlerTest extends NettyHandlerTestBase<NettyClientHand
     };
 
     return NettyClientHandler.newHandler(connection, frameReader(), frameWriter(),
-        lifecycleManager, mockKeepAliveManager, flowControlWindow, ticker);
+        lifecycleManager, mockKeepAliveManager, flowControlWindow, maxHeaderListSize, ticker);
   }
 
   @Override

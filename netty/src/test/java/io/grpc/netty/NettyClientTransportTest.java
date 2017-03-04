@@ -39,14 +39,13 @@ import static io.netty.handler.codec.http2.Http2CodecUtil.DEFAULT_WINDOW_SIZE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.SettableFuture;
-
 import io.grpc.Attributes;
-import io.grpc.Attributes.Key;
 import io.grpc.Context;
 import io.grpc.Grpc;
 import io.grpc.Metadata;
@@ -65,26 +64,15 @@ import io.grpc.internal.ServerTransport;
 import io.grpc.internal.ServerTransportListener;
 import io.grpc.internal.StatsTraceContext;
 import io.grpc.testing.TestUtils;
-
 import io.netty.channel.ChannelConfig;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannelConfig;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.handler.codec.http2.StreamBufferingEncoder;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SupportedCipherSuiteFilter;
-
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -98,6 +86,13 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 /**
  * Tests for {@link NettyClientTransport}.
@@ -149,7 +144,7 @@ public class NettyClientTransportTest {
   public void addDefaultUserAgent() throws Exception {
     startServer();
     NettyClientTransport transport = newTransport(newNegotiator());
-    transport.start(clientTransportListener);
+    callMeMaybe(transport.start(clientTransportListener));
 
     // Send a single RPC and wait for the response.
     new Rpc(transport).halfClose().waitForResponse();
@@ -173,7 +168,7 @@ public class NettyClientTransportTest {
         DEFAULT_WINDOW_SIZE, DEFAULT_MAX_MESSAGE_SIZE, GrpcUtil.DEFAULT_MAX_HEADER_LIST_SIZE,
         authority, null /* user agent */);
     transports.add(transport);
-    transport.start(clientTransportListener);
+    callMeMaybe(transport.start(clientTransportListener));
 
     // verify SO_LINGER has been set
     ChannelConfig config = transport.channel().config();
@@ -185,8 +180,8 @@ public class NettyClientTransportTest {
   public void overrideDefaultUserAgent() throws Exception {
     startServer();
     NettyClientTransport transport = newTransport(newNegotiator(),
-        DEFAULT_MAX_MESSAGE_SIZE, GrpcUtil.DEFAULT_MAX_HEADER_LIST_SIZE, "testUserAgent");
-    transport.start(clientTransportListener);
+        DEFAULT_MAX_MESSAGE_SIZE, GrpcUtil.DEFAULT_MAX_HEADER_LIST_SIZE, "testUserAgent", true);
+    callMeMaybe(transport.start(clientTransportListener));
 
     new Rpc(transport, new Metadata()).halfClose().waitForResponse();
 
@@ -202,8 +197,8 @@ public class NettyClientTransportTest {
     startServer();
     // Allow the response payloads of up to 1 byte.
     NettyClientTransport transport = newTransport(newNegotiator(),
-        1, GrpcUtil.DEFAULT_MAX_HEADER_LIST_SIZE, null);
-    transport.start(clientTransportListener);
+        1, GrpcUtil.DEFAULT_MAX_HEADER_LIST_SIZE, null, true);
+    callMeMaybe(transport.start(clientTransportListener));
 
     try {
       // Send a single RPC and wait for the response.
@@ -228,7 +223,7 @@ public class NettyClientTransportTest {
     ProtocolNegotiator negotiator = newNegotiator();
     for (int index = 0; index < 2; ++index) {
       NettyClientTransport transport = newTransport(negotiator);
-      transport.start(clientTransportListener);
+      callMeMaybe(transport.start(clientTransportListener));
     }
 
     // Send a single RPC on each transport.
@@ -249,7 +244,7 @@ public class NettyClientTransportTest {
     startServer(1, GrpcUtil.DEFAULT_MAX_HEADER_LIST_SIZE);
 
     NettyClientTransport transport = newTransport(newNegotiator());
-    transport.start(clientTransportListener);
+    callMeMaybe(transport.start(clientTransportListener));
 
     // Send a dummy RPC in order to ensure that the updated SETTINGS_MAX_CONCURRENT_STREAMS
     // has been received by the remote endpoint.
@@ -284,8 +279,8 @@ public class NettyClientTransportTest {
     startServer();
 
     NettyClientTransport transport =
-        newTransport(newNegotiator(), DEFAULT_MAX_MESSAGE_SIZE, 1, null);
-    transport.start(clientTransportListener);
+        newTransport(newNegotiator(), DEFAULT_MAX_MESSAGE_SIZE, 1, null, true);
+    callMeMaybe(transport.start(clientTransportListener));
 
     try {
       // Send a single RPC and wait for the response.
@@ -294,8 +289,10 @@ public class NettyClientTransportTest {
           + " size limit!");
     } catch (Exception e) {
       Throwable rootCause = getRootCause(e);
-      assertTrue(rootCause instanceof Http2Exception);
-      assertEquals("Header size exceeded max allowed size (1)", rootCause.getMessage());
+      Status status = ((StatusException) rootCause).getStatus();
+      assertEquals(Status.Code.INTERNAL, status.getCode());
+      assertEquals("HTTP/2 error code: PROTOCOL_ERROR\nReceived Rst Stream",
+          status.getDescription());
     }
   }
 
@@ -304,7 +301,7 @@ public class NettyClientTransportTest {
     startServer(100, 1);
 
     NettyClientTransport transport = newTransport(newNegotiator());
-    transport.start(clientTransportListener);
+    callMeMaybe(transport.start(clientTransportListener));
 
     try {
       // Send a single RPC and wait for the response.
@@ -312,9 +309,8 @@ public class NettyClientTransportTest {
       fail("The stream should have been failed due to server received header exceeds header list"
           + " size limit!");
     } catch (Exception e) {
-      Throwable rootCause = getRootCause(e);
-      assertTrue(rootCause instanceof StatusException);
-      assertEquals(Status.INTERNAL.getCode(), ((StatusException) rootCause).getStatus().getCode());
+      Status status = Status.fromThrowable(e);
+      assertEquals(status.toString(), Status.Code.INTERNAL, status.getCode());
     }
   }
 
@@ -322,8 +318,6 @@ public class NettyClientTransportTest {
   public void getAttributes_negotiatorHandler() throws Exception {
     address = TestUtils.testServerAddress(12345);
     authority = GrpcUtil.authorityFromHostAndPort(address.getHostString(), address.getPort());
-    final Attributes attributes =
-        Attributes.newBuilder().set(Key.<String>of("fakeKey"), "fakeValue").build();
 
     NettyClientTransport transport = newTransport(
         new ProtocolNegotiator() {
@@ -333,20 +327,45 @@ public class NettyClientTransportTest {
           }
         });
 
-    assertEquals(Attributes.EMPTY, transport.getAttrs());
+    assertEquals(Attributes.EMPTY, transport.getAttributes());
 
     transports.clear();
   }
 
   @Test
-  public void clientStreamGetsSslSessionAttributes() throws Exception {
+  public void clientStreamGetsAttributes() throws Exception {
     startServer();
     NettyClientTransport transport = newTransport(newNegotiator());
-    transport.start(clientTransportListener);
+    callMeMaybe(transport.start(clientTransportListener));
     Rpc rpc = new Rpc(transport).halfClose();
     rpc.waitForResponse();
 
     assertNotNull(rpc.stream.getAttributes().get(Grpc.TRANSPORT_ATTR_SSL_SESSION));
+    assertEquals(address, rpc.stream.getAttributes().get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR));
+  }
+
+  @Test
+  public void keepAliveEnabled() throws Exception {
+    startServer();
+    NettyClientTransport transport = newTransport(newNegotiator(), DEFAULT_MAX_MESSAGE_SIZE,
+        GrpcUtil.DEFAULT_MAX_HEADER_LIST_SIZE, null /* user agent */, true /* keep alive */);
+    callMeMaybe(transport.start(clientTransportListener));
+    Rpc rpc = new Rpc(transport).halfClose();
+    rpc.waitForResponse();
+
+    assertNotNull(transport.keepAliveManager());
+  }
+
+  @Test
+  public void keepAliveDisabled() throws Exception {
+    startServer();
+    NettyClientTransport transport = newTransport(newNegotiator(), DEFAULT_MAX_MESSAGE_SIZE,
+        GrpcUtil.DEFAULT_MAX_HEADER_LIST_SIZE, null /* user agent */, false /* keep alive */);
+    callMeMaybe(transport.start(clientTransportListener));
+    Rpc rpc = new Rpc(transport).halfClose();
+    rpc.waitForResponse();
+
+    assertNull(transport.keepAliveManager());
   }
 
   private Throwable getRootCause(Throwable t) {
@@ -364,15 +383,18 @@ public class NettyClientTransportTest {
   }
 
   private NettyClientTransport newTransport(ProtocolNegotiator negotiator) {
-    return newTransport(negotiator,
-        DEFAULT_MAX_MESSAGE_SIZE, GrpcUtil.DEFAULT_MAX_HEADER_LIST_SIZE, null /* user agent */);
+    return newTransport(negotiator, DEFAULT_MAX_MESSAGE_SIZE, GrpcUtil.DEFAULT_MAX_HEADER_LIST_SIZE,
+        null /* user agent */, true /* keep alive */);
   }
 
-  private NettyClientTransport newTransport(
-      ProtocolNegotiator negotiator, int maxMsgSize, int maxHeaderListSize, String userAgent) {
+  private NettyClientTransport newTransport(ProtocolNegotiator negotiator, int maxMsgSize,
+      int maxHeaderListSize, String userAgent, boolean enableKeepAlive) {
     NettyClientTransport transport = new NettyClientTransport(
         address, NioSocketChannel.class, new HashMap<ChannelOption<?>, Object>(), group, negotiator,
         DEFAULT_WINDOW_SIZE, maxMsgSize, maxHeaderListSize, authority, userAgent);
+    if (enableKeepAlive) {
+      transport.enableKeepAlive(true, 1000, 1000);
+    }
     transports.add(transport);
     return transport;
   }
@@ -395,11 +417,21 @@ public class NettyClientTransportTest {
     authority = GrpcUtil.authorityFromHostAndPort(address.getHostString(), address.getPort());
   }
 
+  private void callMeMaybe(Runnable r) {
+    if (r != null) {
+      r.run();
+    }
+  }
+
   private static class Rpc {
     static final String MESSAGE = "hello";
-    static final MethodDescriptor<String, String> METHOD = MethodDescriptor.create(
-            MethodDescriptor.MethodType.UNARY, "/testService/test", StringMarshaller.INSTANCE,
-            StringMarshaller.INSTANCE);
+    static final MethodDescriptor<String, String> METHOD =
+        MethodDescriptor.<String, String>newBuilder()
+            .setType(MethodDescriptor.MethodType.UNARY)
+            .setFullMethodName("/testService/test")
+            .setRequestMarshaller(StringMarshaller.INSTANCE)
+            .setResponseMarshaller(StringMarshaller.INSTANCE)
+            .build();
 
     final ClientStream stream;
     final TestClientStreamListener listener = new TestClientStreamListener();

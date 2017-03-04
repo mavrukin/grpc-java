@@ -50,11 +50,6 @@ import io.grpc.ServiceDescriptor;
 import io.grpc.Status;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -69,6 +64,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 
 /**
@@ -76,15 +74,18 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 @RunWith(JUnit4.class)
 public class ServerCallsTest {
-  static final MethodDescriptor<Integer, Integer> STREAMING_METHOD = MethodDescriptor.create(
-      MethodDescriptor.MethodType.BIDI_STREAMING,
-      "some/method",
-      new IntegerMarshaller(), new IntegerMarshaller());
+  static final MethodDescriptor<Integer, Integer> STREAMING_METHOD =
+      MethodDescriptor.<Integer, Integer>newBuilder()
+          .setType(MethodDescriptor.MethodType.BIDI_STREAMING)
+          .setFullMethodName("some/method")
+          .setRequestMarshaller(new IntegerMarshaller())
+          .setResponseMarshaller(new IntegerMarshaller())
+          .build();
 
-  static final MethodDescriptor<Integer, Integer> UNARY_METHOD = MethodDescriptor.create(
-      MethodDescriptor.MethodType.UNARY,
-      "some/unarymethod",
-      new IntegerMarshaller(), new IntegerMarshaller());
+  static final MethodDescriptor<Integer, Integer> UNARY_METHOD = STREAMING_METHOD.toBuilder()
+      .setType(MethodDescriptor.MethodType.UNARY)
+      .setFullMethodName("some/unarymethod")
+      .build();
 
   private final ServerCallRecorder serverCall = new ServerCallRecorder();
 

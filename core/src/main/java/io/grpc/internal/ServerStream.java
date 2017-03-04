@@ -70,12 +70,17 @@ public interface ServerStream extends Stream {
 
   /**
    * Attributes describing stream.  This is inherited from the transport attributes, and used
-   * as the basis of {@link io.grpc.ServerCall#attributes}.
+   * as the basis of {@link io.grpc.ServerCall#getAttributes}.
    *
    * @return Attributes container
    */
-  Attributes attributes();
+  Attributes getAttributes();
 
+  /**
+   * Gets the authority this stream is addressed to.
+   * @return the authority string.
+   */
+  String getAuthority();
 
   /**
    * Sets the server stream listener.

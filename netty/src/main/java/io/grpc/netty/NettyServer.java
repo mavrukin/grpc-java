@@ -49,13 +49,11 @@ import io.netty.channel.ServerChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import javax.annotation.Nullable;
 
 /**
@@ -125,13 +123,6 @@ class NettyServer implements InternalServer {
     b.childHandler(new ChannelInitializer<Channel>() {
       @Override
       public void initChannel(Channel ch) throws Exception {
-        eventLoopReferenceCounter.retain();
-        ch.closeFuture().addListener(new ChannelFutureListener() {
-          @Override
-          public void operationComplete(ChannelFuture future) {
-            eventLoopReferenceCounter.release();
-          }
-        });
         NettyServerTransport transport = new NettyServerTransport(ch, protocolNegotiator,
             maxStreamsPerConnection, flowControlWindow, maxMessageSize, maxHeaderListSize);
         ServerTransportListener transportListener;
@@ -142,10 +133,18 @@ class NettyServer implements InternalServer {
             ch.close();
             return;
           }
-
+          // `channel` shutdown can race with `ch` initialization, so this is only safe to increment
+          // inside the lock.
+          eventLoopReferenceCounter.retain();
           transportListener = listener.transportCreated(transport);
         }
         transport.start(transportListener);
+        ch.closeFuture().addListener(new ChannelFutureListener() {
+          @Override
+          public void operationComplete(ChannelFuture future) {
+            eventLoopReferenceCounter.release();
+          }
+        });
       }
     });
     // Bind and start to accept incoming connections.

@@ -35,11 +35,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
-
 import java.util.Arrays;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
-
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -167,7 +165,6 @@ public final class CallOptions {
    * <a href="https://github.com/grpc/grpc/blob/master/doc/fail_fast.md">'Fail fast'</a>
    * is the default option for gRPC calls and 'wait for ready' is the opposite to it.
    */
-  @ExperimentalApi("https://github.com/grpc/grpc-java/issues/1915")
   public CallOptions withWaitForReady() {
     CallOptions newOptions = new CallOptions(this);
     newOptions.waitForReady = true;
@@ -178,7 +175,6 @@ public final class CallOptions {
    * Disables 'wait for ready' feature for the call.
    * This method should be rarely used because the default is without 'wait for ready'.
    */
-  @ExperimentalApi("https://github.com/grpc/grpc-java/issues/1915")
   public CallOptions withoutWaitForReady() {
     CallOptions newOptions = new CallOptions(this);
     newOptions.waitForReady = false;
@@ -332,7 +328,6 @@ public final class CallOptions {
    * <a href="https://github.com/grpc/grpc/blob/master/doc/fail_fast.md">'Fail fast'</a>
    * is the default option for gRPC calls and 'wait for ready' is the opposite to it.
    */
-  @ExperimentalApi("https://github.com/grpc/grpc-java/issues/1915")
   public boolean isWaitForReady() {
     return waitForReady;
   }

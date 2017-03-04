@@ -53,7 +53,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import com.google.common.io.ByteStreams;
-
 import io.grpc.Attributes;
 import io.grpc.Metadata;
 import io.grpc.Status;
@@ -78,7 +77,7 @@ import io.netty.handler.codec.http2.Http2LocalFlowController;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.handler.codec.http2.Http2Stream;
 import io.netty.util.AsciiString;
-
+import java.io.InputStream;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -87,8 +86,6 @@ import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-
-import java.io.InputStream;
 
 /**
  * Unit tests for {@link NettyServerHandler}.
@@ -109,6 +106,7 @@ public class NettyServerHandlerTest extends NettyHandlerTestBase<NettyServerHand
 
   private int flowControlWindow = DEFAULT_WINDOW_SIZE;
   private int maxConcurrentStreams = Integer.MAX_VALUE;
+  private int maxHeaderListSize = Integer.MAX_VALUE;
 
   private class ServerTransportListenerImpl implements ServerTransportListener {
 
@@ -139,6 +137,7 @@ public class NettyServerHandlerTest extends NettyHandlerTestBase<NettyServerHand
     initChannel(new GrpcHttp2ServerHeadersDecoder(GrpcUtil.DEFAULT_MAX_HEADER_LIST_SIZE));
 
     // Simulate receipt of the connection preface
+    handler().handleProtocolNegotiationCompleted(Attributes.EMPTY);
     channelRead(Http2CodecUtil.connectionPrefaceBuf());
     // Simulate receipt of initial remote settings.
     ByteBuf serializedSettings = serializeSettings(new Http2Settings());
@@ -278,6 +277,18 @@ public class NettyServerHandlerTest extends NettyHandlerTestBase<NettyServerHand
   }
 
   @Test
+  public void shouldAdvertiseMaxHeaderListSize() throws Exception {
+    maxHeaderListSize = 123;
+    setUp();
+
+    ArgumentCaptor<Http2Settings> captor = ArgumentCaptor.forClass(Http2Settings.class);
+    verifyWrite().writeSettings(
+        any(ChannelHandlerContext.class), captor.capture(), any(ChannelPromise.class));
+
+    assertEquals(maxHeaderListSize, captor.getValue().maxHeaderListSize().intValue());
+  }
+
+  @Test
   @Ignore("Re-enable once https://github.com/grpc/grpc-java/issues/1175 is fixed")
   public void connectionWindowShouldBeOverridden() throws Exception {
     flowControlWindow = 1048576; // 1MiB
@@ -359,7 +370,7 @@ public class NettyServerHandlerTest extends NettyHandlerTestBase<NettyServerHand
   @Override
   protected NettyServerHandler newHandler() {
     return NettyServerHandler.newHandler(frameReader(), frameWriter(), transportListener,
-        maxConcurrentStreams, flowControlWindow, DEFAULT_MAX_MESSAGE_SIZE);
+        maxConcurrentStreams, flowControlWindow, maxHeaderListSize, DEFAULT_MAX_MESSAGE_SIZE);
   }
 
   @Override

@@ -16,11 +16,14 @@ import static io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall;
 import static io.grpc.stub.ServerCalls.asyncUnimplementedStreamingCall;
 
 /**
+ * <pre>
+ * A DynamicService
+ * </pre>
  */
 @javax.annotation.Generated(
-    value = "by gRPC proto compiler (version 1.1.0-SNAPSHOT)",
+    value = "by gRPC proto compiler (version 1.2.0-SNAPSHOT)",
     comments = "Source: io/grpc/reflection/testing/dynamic_reflection_test.proto")
-public class DynamicServiceGrpc {
+public final class DynamicServiceGrpc {
 
   private DynamicServiceGrpc() {}
 
@@ -61,10 +64,16 @@ public class DynamicServiceGrpc {
   }
 
   /**
+   * <pre>
+   * A DynamicService
+   * </pre>
    */
   public static abstract class DynamicServiceImplBase implements io.grpc.BindableService {
 
     /**
+     * <pre>
+     * A method
+     * </pre>
      */
     public void method(io.grpc.reflection.testing.DynamicRequest request,
         io.grpc.stub.StreamObserver<io.grpc.reflection.testing.DynamicReply> responseObserver) {
@@ -85,6 +94,9 @@ public class DynamicServiceGrpc {
   }
 
   /**
+   * <pre>
+   * A DynamicService
+   * </pre>
    */
   public static final class DynamicServiceStub extends io.grpc.stub.AbstractStub<DynamicServiceStub> {
     private DynamicServiceStub(io.grpc.Channel channel) {
@@ -103,6 +115,9 @@ public class DynamicServiceGrpc {
     }
 
     /**
+     * <pre>
+     * A method
+     * </pre>
      */
     public void method(io.grpc.reflection.testing.DynamicRequest request,
         io.grpc.stub.StreamObserver<io.grpc.reflection.testing.DynamicReply> responseObserver) {
@@ -112,6 +127,9 @@ public class DynamicServiceGrpc {
   }
 
   /**
+   * <pre>
+   * A DynamicService
+   * </pre>
    */
   public static final class DynamicServiceBlockingStub extends io.grpc.stub.AbstractStub<DynamicServiceBlockingStub> {
     private DynamicServiceBlockingStub(io.grpc.Channel channel) {
@@ -130,6 +148,9 @@ public class DynamicServiceGrpc {
     }
 
     /**
+     * <pre>
+     * A method
+     * </pre>
      */
     public io.grpc.reflection.testing.DynamicReply method(io.grpc.reflection.testing.DynamicRequest request) {
       return blockingUnaryCall(
@@ -138,6 +159,9 @@ public class DynamicServiceGrpc {
   }
 
   /**
+   * <pre>
+   * A DynamicService
+   * </pre>
    */
   public static final class DynamicServiceFutureStub extends io.grpc.stub.AbstractStub<DynamicServiceFutureStub> {
     private DynamicServiceFutureStub(io.grpc.Channel channel) {
@@ -156,6 +180,9 @@ public class DynamicServiceGrpc {
     }
 
     /**
+     * <pre>
+     * A method
+     * </pre>
      */
     public com.google.common.util.concurrent.ListenableFuture<io.grpc.reflection.testing.DynamicReply> method(
         io.grpc.reflection.testing.DynamicRequest request) {
@@ -166,7 +193,7 @@ public class DynamicServiceGrpc {
 
   private static final int METHODID_METHOD = 0;
 
-  private static class MethodHandlers<Req, Resp> implements
+  private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
       io.grpc.stub.ServerCalls.ServerStreamingMethod<Req, Resp>,
       io.grpc.stub.ServerCalls.ClientStreamingMethod<Req, Resp>,
@@ -174,7 +201,7 @@ public class DynamicServiceGrpc {
     private final DynamicServiceImplBase serviceImpl;
     private final int methodId;
 
-    public MethodHandlers(DynamicServiceImplBase serviceImpl, int methodId) {
+    MethodHandlers(DynamicServiceImplBase serviceImpl, int methodId) {
       this.serviceImpl = serviceImpl;
       this.methodId = methodId;
     }
@@ -218,10 +245,10 @@ public class DynamicServiceGrpc {
       synchronized (DynamicServiceGrpc.class) {
         result = serviceDescriptor;
         if (result == null) {
-          serviceDescriptor = result = new io.grpc.ServiceDescriptor(
-              SERVICE_NAME,
-              new DynamicServiceDescriptorSupplier(),
-              METHOD_METHOD);
+          serviceDescriptor = result = io.grpc.ServiceDescriptor.newBuilder(SERVICE_NAME)
+              .setSchemaDescriptor(new DynamicServiceDescriptorSupplier())
+              .addMethod(METHOD_METHOD)
+              .build();
         }
       }
     }

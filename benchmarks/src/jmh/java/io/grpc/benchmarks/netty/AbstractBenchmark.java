@@ -56,7 +56,6 @@ import io.netty.channel.local.LocalChannel;
 import io.netty.channel.local.LocalServerChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.DefaultThreadFactory;
-
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
@@ -256,18 +255,20 @@ public abstract class AbstractBenchmark {
     response.writerIndex(response.capacity() - 1);
 
     // Simple method that sends and receives NettyByteBuf
-    unaryMethod = MethodDescriptor.create(MethodType.UNARY,
-        "benchmark/unary",
-        new ByteBufOutputMarshaller(),
-        new ByteBufOutputMarshaller());
-    pingPongMethod = MethodDescriptor.create(MethodType.BIDI_STREAMING,
-        "benchmark/pingPong",
-        new ByteBufOutputMarshaller(),
-        new ByteBufOutputMarshaller());
-    flowControlledStreaming = MethodDescriptor.create(MethodType.BIDI_STREAMING,
-        "benchmark/flowControlledStreaming",
-        new ByteBufOutputMarshaller(),
-        new ByteBufOutputMarshaller());
+    unaryMethod = MethodDescriptor.<ByteBuf, ByteBuf>newBuilder()
+        .setType(MethodType.UNARY)
+        .setFullMethodName("benchmark/unary")
+        .setRequestMarshaller(new ByteBufOutputMarshaller())
+        .setResponseMarshaller(new ByteBufOutputMarshaller())
+        .build();
+
+    pingPongMethod = unaryMethod.toBuilder()
+        .setType(MethodType.BIDI_STREAMING)
+        .setFullMethodName("benchmark/pingPong")
+        .build();
+    flowControlledStreaming = pingPongMethod.toBuilder()
+        .setFullMethodName("benchmark/flowControlledStreaming")
+        .build();
 
     // Server implementation of unary & streaming methods
     serverBuilder.addService(

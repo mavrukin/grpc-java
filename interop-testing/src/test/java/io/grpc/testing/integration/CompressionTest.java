@@ -40,7 +40,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import com.google.protobuf.ByteString;
-
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ClientCall;
@@ -67,19 +66,18 @@ import io.grpc.testing.integration.Messages.SimpleRequest;
 import io.grpc.testing.integration.Messages.SimpleResponse;
 import io.grpc.testing.integration.TestServiceGrpc.TestServiceBlockingStub;
 import io.grpc.testing.integration.TransportCompressionTest.Fzip;
-
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 
 /**
  * Tests for compression configurations.
@@ -234,13 +232,13 @@ public class CompressionTest {
     }
 
     if (serverAcceptEncoding) {
-      assertEquals("fzip", clientResponseHeaders.get(MESSAGE_ACCEPT_ENCODING_KEY));
+      assertEqualsString("fzip", clientResponseHeaders.get(MESSAGE_ACCEPT_ENCODING_KEY));
     } else {
       assertNull(clientResponseHeaders.get(MESSAGE_ACCEPT_ENCODING_KEY));
     }
 
     if (clientAcceptEncoding) {
-      assertEquals("fzip", serverResponseHeaders.get(MESSAGE_ACCEPT_ENCODING_KEY));
+      assertEqualsString("fzip", serverResponseHeaders.get(MESSAGE_ACCEPT_ENCODING_KEY));
     } else {
       assertNull(serverResponseHeaders.get(MESSAGE_ACCEPT_ENCODING_KEY));
     }
@@ -325,5 +323,9 @@ public class CompressionTest {
       headersCopy.merge(headers);
       clientResponseHeaders = headersCopy;
     }
+  }
+
+  private static void assertEqualsString(String expected, byte[] actual) {
+    assertEquals(expected, new String(actual, Charset.forName("US-ASCII")));
   }
 }

@@ -34,11 +34,10 @@ package io.grpc.benchmarks.driver;
 import static java.util.concurrent.ForkJoinPool.defaultForkJoinWorkerThreadFactory;
 
 import com.google.common.util.concurrent.UncaughtExceptionHandlers;
-
 import com.sun.management.OperatingSystemMXBean;
-
 import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
+import io.grpc.MethodDescriptor.Marshaller;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.ServerCall;
@@ -56,7 +55,6 @@ import io.grpc.stub.StreamObserver;
 import io.grpc.testing.TestUtils;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.PooledByteBufAllocator;
-
 import java.io.File;
 import java.lang.management.ManagementFactory;
 import java.util.List;
@@ -73,25 +71,20 @@ import java.util.logging.Logger;
  */
 final class LoadServer {
 
+  private static final Marshaller<ByteBuf> marshaller = new ByteBufOutputMarshaller();
   /**
    * Generic version of the unary method call.
    */
   static final MethodDescriptor<ByteBuf, ByteBuf> GENERIC_UNARY_METHOD =
-      MethodDescriptor.create(
-          BenchmarkServiceGrpc.METHOD_UNARY_CALL.getType(),
-          BenchmarkServiceGrpc.METHOD_UNARY_CALL.getFullMethodName(),
-          new ByteBufOutputMarshaller(),
-          new ByteBufOutputMarshaller());
+      BenchmarkServiceGrpc.METHOD_UNARY_CALL.toBuilder(marshaller, marshaller)
+          .build();
 
   /**
    * Generic version of the streaming ping-pong method call.
    */
   static final MethodDescriptor<ByteBuf, ByteBuf> GENERIC_STREAMING_PING_PONG_METHOD =
-      MethodDescriptor.create(
-          BenchmarkServiceGrpc.METHOD_STREAMING_CALL.getType(),
-          BenchmarkServiceGrpc.METHOD_STREAMING_CALL.getFullMethodName(),
-          new ByteBufOutputMarshaller(),
-          new ByteBufOutputMarshaller());
+      BenchmarkServiceGrpc.METHOD_STREAMING_CALL.toBuilder(marshaller, marshaller)
+          .build();
 
   private static final Logger log = Logger.getLogger(LoadServer.class.getName());
 

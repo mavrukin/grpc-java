@@ -34,7 +34,6 @@ package io.grpc.benchmarks;
 import io.grpc.Drainable;
 import io.grpc.KnownLength;
 import io.netty.buffer.ByteBuf;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -42,6 +41,7 @@ import java.io.OutputStream;
 /**
  * A {@link Drainable} {@code InputStream} that reads an {@link ByteBuf}.
  */
+@SuppressWarnings("InputStreamSlowMultibyteRead") // doesn't matter if slow. It'll throw
 public class ByteBufInputStream extends InputStream
     implements Drainable, KnownLength {
 

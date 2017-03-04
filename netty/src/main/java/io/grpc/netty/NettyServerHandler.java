@@ -41,9 +41,7 @@ import static io.netty.handler.codec.http2.DefaultHttp2LocalFlowController.DEFAU
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-
 import io.grpc.Attributes;
-import io.grpc.Grpc;
 import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.internal.GrpcUtil;
@@ -79,6 +77,7 @@ import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.handler.codec.http2.Http2Stream;
 import io.netty.handler.codec.http2.Http2StreamVisitor;
 import io.netty.handler.logging.LogLevel;
+import io.netty.util.AsciiString;
 import io.netty.util.ReferenceCountUtil;
 
 import java.util.logging.Level;
@@ -99,7 +98,7 @@ class NettyServerHandler extends AbstractNettyHandler {
   private Throwable connectionError;
   private boolean teWarningLogged;
   private WriteQueue serverWriteQueue;
-  private Attributes protocolNegotationAttrs = Attributes.EMPTY;
+  private AsciiString lastKnownAuthority;
 
   static NettyServerHandler newHandler(ServerTransportListener transportListener,
                                        int maxStreams,
@@ -114,7 +113,7 @@ class NettyServerHandler extends AbstractNettyHandler {
     Http2FrameWriter frameWriter =
         new Http2OutboundFrameLogger(new DefaultHttp2FrameWriter(), frameLogger);
     return newHandler(frameReader, frameWriter, transportListener, maxStreams, flowControlWindow,
-        maxMessageSize);
+        maxHeaderListSize, maxMessageSize);
   }
 
   @VisibleForTesting
@@ -122,9 +121,11 @@ class NettyServerHandler extends AbstractNettyHandler {
                                        ServerTransportListener transportListener,
                                        int maxStreams,
                                        int flowControlWindow,
+                                       int maxHeaderListSize,
                                        int maxMessageSize) {
     Preconditions.checkArgument(maxStreams > 0, "maxStreams must be positive");
     Preconditions.checkArgument(flowControlWindow > 0, "flowControlWindow must be positive");
+    Preconditions.checkArgument(maxHeaderListSize > 0, "maxHeaderListSize must be positive");
     Preconditions.checkArgument(maxMessageSize > 0, "maxMessageSize must be positive");
 
     Http2Connection connection = new DefaultHttp2Connection(true);
@@ -141,6 +142,7 @@ class NettyServerHandler extends AbstractNettyHandler {
     Http2Settings settings = new Http2Settings();
     settings.initialWindowSize(flowControlWindow);
     settings.maxConcurrentStreams(maxStreams);
+    settings.maxHeaderListSize(maxHeaderListSize);
 
     return new NettyServerHandler(transportListener, decoder, encoder, settings, maxMessageSize);
   }
@@ -168,9 +170,6 @@ class NettyServerHandler extends AbstractNettyHandler {
   @Override
   public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
     serverWriteQueue = new WriteQueue(ctx.channel());
-    attributes = transportListener.transportReady(Attributes.newBuilder(protocolNegotationAttrs)
-        .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, ctx.channel().remoteAddress())
-        .build());
     super.handlerAdded(ctx);
   }
 
@@ -197,8 +196,9 @@ class NettyServerHandler extends AbstractNettyHandler {
           checkNotNull(transportListener.methodDetermined(method, metadata), "statsTraceCtx");
       NettyServerStream.TransportState state = new NettyServerStream.TransportState(
           this, http2Stream, maxMessageSize, statsTraceCtx);
+      String authority = getOrUpdateAuthority((AsciiString)headers.authority());
       NettyServerStream stream = new NettyServerStream(ctx.channel(), state, attributes,
-          statsTraceCtx);
+          authority, statsTraceCtx);
       transportListener.streamCreated(stream, method, metadata);
       state.onStreamAllocated();
       http2Stream.setProperty(streamKey, state);
@@ -210,6 +210,18 @@ class NettyServerHandler extends AbstractNettyHandler {
       // Throw an exception that will get handled by onStreamError.
       throw newStreamException(streamId, e);
     }
+  }
+
+  private String getOrUpdateAuthority(AsciiString authority) {
+    if (authority == null) {
+      return null;
+    } else if (!authority.equals(lastKnownAuthority)) {
+      lastKnownAuthority = authority;
+    }
+
+    // AsciiString.toString() is internally cached, so subsequent calls will not
+    // result in recomputing the String representation of lastKnownAuthority.
+    return lastKnownAuthority.toString();
   }
 
   private void onDataRead(int streamId, ByteBuf data, int padding, boolean endOfStream)
@@ -262,7 +274,7 @@ class NettyServerHandler extends AbstractNettyHandler {
 
   @Override
   public void handleProtocolNegotiationCompleted(Attributes attrs) {
-    this.protocolNegotationAttrs = attrs;
+    attributes = transportListener.transportReady(attrs);
   }
 
   /**
@@ -354,10 +366,18 @@ class NettyServerHandler extends AbstractNettyHandler {
    */
   private void sendResponseHeaders(ChannelHandlerContext ctx, SendResponseHeadersCommand cmd,
       ChannelPromise promise) throws Http2Exception {
-    if (cmd.endOfStream()) {
-      closeStreamWhenDone(promise, cmd.stream().id());
+    // TODO(carl-mastrangelo): remove this check once https://github.com/netty/netty/issues/6296 is
+    // fixed.
+    int streamId = cmd.stream().id();
+    Http2Stream stream = connection().stream(streamId);
+    if (stream == null) {
+      resetStream(ctx, streamId, Http2Error.CANCEL.code(), promise);
+      return;
     }
-    encoder().writeHeaders(ctx, cmd.stream().id(), cmd.headers(), 0, cmd.endOfStream(), promise);
+    if (cmd.endOfStream()) {
+      closeStreamWhenDone(promise, streamId);
+    }
+    encoder().writeHeaders(ctx, streamId, cmd.headers(), 0, cmd.endOfStream(), promise);
   }
 
   private void cancelStream(ChannelHandlerContext ctx, CancelServerStreamCommand cmd,

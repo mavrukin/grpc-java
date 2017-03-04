@@ -2,9 +2,14 @@ buildscript {
   repositories {
     mavenCentral()
     mavenLocal()
+    maven {
+      url "https://plugins.gradle.org/m2/"
+    }
   }
   dependencies {
     classpath 'com.google.gradle:osdetector-gradle-plugin:1.4.0'
+    classpath 'ru.vyarus:gradle-animalsniffer-plugin:1.2.0'
+    classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.9'
   }
 }
 
@@ -17,9 +22,14 @@ subprojects {
     apply plugin: "jacoco"
 
     apply plugin: "com.google.osdetector"
+    // The plugin only has an effect if a signature is specified
+    apply plugin: "ru.vyarus.animalsniffer"
+    if (!rootProject.hasProperty('errorProne') || rootProject.errorProne.toBoolean()) {
+      apply plugin: "net.ltgt.errorprone"
+    }
 
     group = "io.grpc"
-    version = "1.1.0-SNAPSHOT" // CURRENT_GRPC_VERSION
+    version = "1.2.0-SNAPSHOT" // CURRENT_GRPC_VERSION
 
     sourceCompatibility = 1.6
     targetCompatibility = 1.6
@@ -30,7 +40,7 @@ subprojects {
     }
 
     [compileJava, compileTestJava].each() {
-        it.options.compilerArgs += ["-Xlint:all", "-Xlint:-options"]
+        it.options.compilerArgs += ["-Xlint:all", "-Xlint:-options", "-Xlint:-path"]
         it.options.encoding = "UTF-8"
         if (rootProject.hasProperty('failOnWarnings') && rootProject.failOnWarnings.toBoolean()) {
             it.options.compilerArgs += ["-Werror"]
@@ -62,8 +72,7 @@ subprojects {
         javaPluginPath = "$rootDir/compiler/build/exe/java_plugin/$protocPluginBaseName$exeSuffix"
 
         guavaVersion = '20.0'
-        guiceVersion = '4.1.0'
-        protobufVersion = '3.1.0'
+        protobufVersion = '3.2.0'
         protobufNanoVersion = '3.0.0-alpha-5'
 
         configureProtoCompilation = {
@@ -134,7 +143,9 @@ subprojects {
 
           [compileJava, compileTestJava].each() {
             // Protobuf-generated code produces some warnings.
-            it.options.compilerArgs += ["-Xlint:-cast"]
+            // https://github.com/google/protobuf/issues/2718
+            it.options.compilerArgs += ["-Xlint:-cast", "-Xep:MissingOverride:OFF",
+                "-Xep:ReferenceEquality:OFF", "-Xep:FunctionalInterfaceClash:OFF"]
           }
         }
 
@@ -164,9 +175,10 @@ subprojects {
                 protobuf_plugin: 'com.google.protobuf:protobuf-gradle-plugin:0.8.0',
                 protobuf_util: "com.google.protobuf:protobuf-java-util:${protobufVersion}",
 
-                netty: 'io.netty:netty-codec-http2:[4.1.6.Final]',
-                netty_epoll: 'io.netty:netty-transport-native-epoll:4.1.6.Final' + epoll_suffix,
-                netty_tcnative: 'io.netty:netty-tcnative-boringssl-static:1.1.33.Fork23',
+                netty: 'io.netty:netty-codec-http2:[4.1.8.Final]',
+                netty_epoll: 'io.netty:netty-transport-native-epoll:4.1.8.Final' + epoll_suffix,
+                netty_proxy_handler: 'io.netty:netty-handler-proxy:4.1.8.Final',
+                netty_tcnative: 'io.netty:netty-tcnative-boringssl-static:1.1.33.Fork26',
 
                 // Test dependencies.
                 junit: 'junit:junit:4.11',
@@ -185,7 +197,6 @@ subprojects {
     // Define a separate configuration for managing the dependency on Jetty ALPN agent.
     configurations {
         alpnagent
-        tcnative
     }
 
     dependencies {
@@ -195,8 +206,9 @@ subprojects {
         // Configuration for modules that use Jetty ALPN agent
         alpnagent libraries.jetty_alpn_agent
 
-        // Configuration for modules that use Netty tcnative (for OpenSSL).
-        tcnative libraries.netty_tcnative
+        // The ErrorProne plugin defaults to the latest, which would break our
+        // build if error prone releases a new version with a new check
+        errorprone 'com.google.errorprone:error_prone_core:2.0.15'
     }
 
     signing {
@@ -262,6 +274,7 @@ subprojects {
         repository(url: stagingUrl, configureAuth)
         snapshotRepository(url: 'https://oss.sonatype.org/content/repositories/snapshots/', configureAuth)
     }
+    uploadArchives.onlyIf { !name.contains("thrift") }
 
     [
       install.repositories.mavenInstaller,

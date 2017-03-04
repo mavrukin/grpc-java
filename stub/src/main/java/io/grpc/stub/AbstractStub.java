@@ -41,9 +41,7 @@ import io.grpc.ClientInterceptors;
 import io.grpc.Deadline;
 import io.grpc.ExperimentalApi;
 import io.grpc.ManagedChannelBuilder;
-
 import java.util.concurrent.TimeUnit;
-
 import javax.annotation.Nullable;
 
 /**
@@ -171,7 +169,6 @@ public abstract class AbstractStub<S extends AbstractStub<S>> {
   /**
    * Returns a new stub that uses the 'wait for ready' call option.
    */
-  @ExperimentalApi("https://github.com/grpc/grpc-java/issues/1915")
   public final S withWaitForReady() {
     return build(channel, callOptions.withWaitForReady());
   }

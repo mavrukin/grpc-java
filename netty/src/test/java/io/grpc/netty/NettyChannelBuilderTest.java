@@ -38,17 +38,14 @@ import static org.mockito.Mockito.mock;
 import io.grpc.netty.InternalNettyChannelBuilder.OverrideAuthorityChecker;
 import io.grpc.netty.ProtocolNegotiators.TlsNegotiator;
 import io.netty.handler.ssl.SslContext;
-
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import javax.net.ssl.SSLException;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-
-import javax.net.ssl.SSLException;
 
 @RunWith(JUnit4.class)
 public class NettyChannelBuilderTest {
@@ -65,7 +62,7 @@ public class NettyChannelBuilderTest {
         return authority;
       }
     });
-    builder.overrideAuthority("[invalidauthority")
+    Object unused = builder.overrideAuthority("[invalidauthority")
         .negotiationType(NegotiationType.PLAINTEXT)
         .buildTransportFactory();
   }
@@ -77,7 +74,7 @@ public class NettyChannelBuilderTest {
 
     NettyChannelBuilder builder = new NettyChannelBuilder(new SocketAddress(){});
 
-    builder.overrideAuthority("[invalidauthority")
+    Object unused = builder.overrideAuthority("[invalidauthority")
         .negotiationType(NegotiationType.PLAINTEXT)
         .buildTransportFactory();
   }
@@ -87,7 +84,8 @@ public class NettyChannelBuilderTest {
     thrown.expect(IllegalArgumentException.class);
     thrown.expectMessage("Invalid host or port");
 
-    NettyChannelBuilder.forAddress(new InetSocketAddress("invalid_authority", 1234));
+    Object unused =
+        NettyChannelBuilder.forAddress(new InetSocketAddress("invalid_authority", 1234));
   }
 
   @Test

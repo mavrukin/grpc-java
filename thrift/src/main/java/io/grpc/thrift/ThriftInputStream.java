@@ -32,22 +32,20 @@
 package io.grpc.thrift;
 
 import com.google.common.io.ByteStreams;
-
 import io.grpc.Drainable;
 import io.grpc.KnownLength;
 import io.grpc.Status;
-import org.apache.thrift.TBase;
-import org.apache.thrift.TException;
-import org.apache.thrift.TSerializer;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-
 import javax.annotation.Nullable;
+import org.apache.thrift.TBase;
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
 
 /** InputStream for Thrift. */
+@SuppressWarnings("InputStreamSlowMultibyteRead") // TODO(ejona): would be good to fix
 final class ThriftInputStream extends InputStream implements Drainable, KnownLength {
 
   /**

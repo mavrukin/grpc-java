@@ -34,7 +34,6 @@ package io.grpc.inprocess;
 import io.grpc.internal.InternalServer;
 import io.grpc.internal.ManagedClientTransport;
 import io.grpc.internal.testing.AbstractTransportTest;
-
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -42,6 +41,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class InProcessTransportTest extends AbstractTransportTest {
   private static final String transportName = "perfect-for-testing";
+  private static final String authority = "a-testing-authority";
 
   @Override
   protected InternalServer newServer() {
@@ -54,7 +54,12 @@ public class InProcessTransportTest extends AbstractTransportTest {
   }
 
   @Override
+  protected String testAuthority(InternalServer server) {
+    return authority;
+  }
+
+  @Override
   protected ManagedClientTransport newClientTransport(InternalServer server) {
-    return new InProcessTransport(transportName);
+    return new InProcessTransport(transportName, testAuthority(server));
   }
 }

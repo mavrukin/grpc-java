@@ -35,14 +35,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Joiner;
-
+import java.nio.charset.Charset;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -68,7 +67,7 @@ public final class DecompressorRegistry {
   }
 
   private final Map<String, DecompressorInfo> decompressors;
-  private final String advertisedDecompressors;
+  private final byte[] advertisedDecompressors;
 
   /**
    * Registers a decompressor for both decompression and message encoding negotiation.  Returns a
@@ -101,12 +100,13 @@ public final class DecompressorRegistry {
     newDecompressors.put(encoding, new DecompressorInfo(d, advertised));
 
     decompressors = Collections.unmodifiableMap(newDecompressors);
-    advertisedDecompressors = ACCEPT_ENCODING_JOINER.join(getAdvertisedMessageEncodings());
+    advertisedDecompressors = ACCEPT_ENCODING_JOINER.join(getAdvertisedMessageEncodings())
+        .getBytes(Charset.forName("US-ASCII"));
   }
 
   private DecompressorRegistry() {
     decompressors = new LinkedHashMap<String, DecompressorInfo>(0);
-    advertisedDecompressors = "";
+    advertisedDecompressors = new byte[0];
   }
 
   /**
@@ -116,7 +116,8 @@ public final class DecompressorRegistry {
     return decompressors.keySet();
   }
 
-  public String getRawAdvertisedMessageEncodings() {
+
+  byte[] getRawAdvertisedMessageEncodings() {
     return advertisedDecompressors;
   }
 

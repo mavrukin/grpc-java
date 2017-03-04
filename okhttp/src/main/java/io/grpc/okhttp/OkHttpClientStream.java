@@ -45,14 +45,11 @@ import io.grpc.internal.StatsTraceContext;
 import io.grpc.internal.WritableBuffer;
 import io.grpc.okhttp.internal.framed.ErrorCode;
 import io.grpc.okhttp.internal.framed.Header;
-
-import okio.Buffer;
-
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Queue;
-
 import javax.annotation.concurrent.GuardedBy;
+import okio.Buffer;
 
 /**
  * Client stream for the okhttp transport.
@@ -75,6 +72,7 @@ class OkHttpClientStream extends Http2ClientStream {
   private final OkHttpClientTransport transport;
   private final Object lock;
   private final String userAgent;
+  private final StatsTraceContext statsTraceCtx;
   private String authority;
   private Object outboundFlowState;
   private volatile int id = ABSENT_ID;
@@ -101,6 +99,7 @@ class OkHttpClientStream extends Http2ClientStream {
       String userAgent,
       StatsTraceContext statsTraceCtx) {
     super(new OkHttpWritableBufferAllocator(), maxMessageSize, statsTraceCtx);
+    this.statsTraceCtx = checkNotNull(statsTraceCtx, "statsTraceCtx");
     this.method = method;
     this.headers = headers;
     this.frameWriter = frameWriter;
@@ -163,6 +162,7 @@ class OkHttpClientStream extends Http2ClientStream {
     if (pendingData != null) {
       // Only happens when the stream has neither been started nor cancelled.
       frameWriter.synStream(false, false, id, 0, requestHeaders);
+      statsTraceCtx.clientHeadersSent();
       requestHeaders = null;
 
       boolean flush = false;

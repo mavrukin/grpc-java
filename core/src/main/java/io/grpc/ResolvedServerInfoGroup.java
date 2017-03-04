@@ -35,13 +35,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Objects;
-
 import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -147,6 +145,9 @@ public final class ResolvedServerInfoGroup {
     return "[servers=" + resolvedServerInfoList + ", attrs=" + attributes + "]";
   }
 
+  /**
+   * Builder for a {@link ResolvedServerInfo}.
+   */
   public static final class Builder {
     private final List<ResolvedServerInfo> group = new ArrayList<ResolvedServerInfo>();
     private final Attributes attributes;

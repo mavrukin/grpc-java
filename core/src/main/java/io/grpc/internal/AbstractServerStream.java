@@ -32,11 +32,9 @@
 package io.grpc.internal;
 
 import com.google.common.base.Preconditions;
-
 import io.grpc.Attributes;
 import io.grpc.Metadata;
 import io.grpc.Status;
-
 import javax.annotation.Nullable;
 
 /**
@@ -165,8 +163,13 @@ public abstract class AbstractServerStream extends AbstractStream2
     return super.isReady();
   }
 
-  @Override public Attributes attributes() {
+  @Override public Attributes getAttributes() {
     return Attributes.EMPTY;
+  }
+
+  @Override
+  public String getAuthority() {
+    return null;
   }
 
   @Override

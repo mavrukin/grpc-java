@@ -35,7 +35,6 @@ import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.ByteStreams;
 import com.google.instrumentation.stats.MeasurementDescriptor;
 import com.google.instrumentation.stats.MeasurementMap;
 import com.google.instrumentation.stats.MeasurementValue;
@@ -43,14 +42,13 @@ import com.google.instrumentation.stats.StatsContext;
 import com.google.instrumentation.stats.StatsContextFactory;
 import com.google.instrumentation.stats.TagKey;
 import com.google.instrumentation.stats.TagValue;
-
+import io.grpc.internal.IoUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-
 import javax.annotation.Nullable;
 
 public class StatsTestUtils {
@@ -93,6 +91,9 @@ public class StatsTestUtils {
     }
   }
 
+  /**
+   * This tag will be propagated by {@link FakeStatsContextFactory} on the wire.
+   */
   public static final TagKey EXTRA_TAG = TagKey.create("/rpc/test/extratag");
 
   private static final String EXTRA_TAG_HEADER_VALUE_PREFIX = "extratag:";
@@ -138,7 +139,7 @@ public class StatsTestUtils {
     public StatsContext deserialize(InputStream buffer) {
       String serializedString;
       try {
-        serializedString = new String(ByteStreams.toByteArray(buffer), UTF_8);
+        serializedString = new String(IoUtils.toByteArray(buffer), UTF_8);
       } catch (IOException e) {
         throw new RuntimeException(e);
       }

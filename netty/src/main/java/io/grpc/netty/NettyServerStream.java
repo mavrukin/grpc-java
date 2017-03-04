@@ -45,7 +45,6 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Stream;
-
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -61,14 +60,16 @@ class NettyServerStream extends AbstractServerStream {
   private final Channel channel;
   private final WriteQueue writeQueue;
   private final Attributes attributes;
+  private final String authority;
 
   public NettyServerStream(Channel channel, TransportState state, Attributes transportAttrs,
-      StatsTraceContext statsTraceCtx) {
+      String authority, StatsTraceContext statsTraceCtx) {
     super(new NettyWritableBufferAllocator(channel.alloc()), statsTraceCtx);
     this.state = checkNotNull(state, "transportState");
     this.channel = checkNotNull(channel, "channel");
     this.writeQueue = state.handler.getWriteQueue();
     this.attributes = checkNotNull(transportAttrs);
+    this.authority = authority;
   }
 
   @Override
@@ -82,8 +83,13 @@ class NettyServerStream extends AbstractServerStream {
   }
 
   @Override
-  public Attributes attributes() {
+  public Attributes getAttributes() {
     return attributes;
+  }
+
+  @Override
+  public String getAuthority() {
+    return authority;
   }
 
   private class Sink implements AbstractServerStream.Sink {

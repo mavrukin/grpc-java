@@ -36,19 +36,14 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-
 import io.grpc.Codec;
 import io.grpc.Compressor;
 import io.grpc.Decompressor;
-
 import java.io.InputStream;
-
 import javax.annotation.concurrent.GuardedBy;
 
 /**
  * Abstract base class for {@link Stream} implementations.
- *
- * @param <IdT> type of the unique identifier of this stream.
  */
 public abstract class AbstractStream implements Stream {
   /**
@@ -135,7 +130,7 @@ public abstract class AbstractStream implements Stream {
       StatsTraceContext statsTraceCtx) {
     framer = new MessageFramer(new FramerSink(), bufferAllocator, statsTraceCtx);
     deframer = new MessageDeframer(new DeframerListener(), Codec.Identity.NONE, maxMessageSize,
-        statsTraceCtx);
+        statsTraceCtx, getClass().getName());
   }
 
   protected final void setMaxInboundMessageSizeProtected(int maxSize) {

@@ -34,13 +34,6 @@ package io.grpc.testing.integration;
 import static org.junit.Assert.assertEquals;
 
 import io.netty.util.concurrent.DefaultThreadFactory;
-
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -52,6 +45,11 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class ProxyTest {
@@ -81,7 +79,7 @@ public class ProxyTest {
       throws UnknownHostException, IOException, InterruptedException, ExecutionException {
     server = new Server();
     int serverPort = server.init();
-    executor.submit(server);
+    executor.execute(server);
 
     int latency = (int) TimeUnit.MILLISECONDS.toNanos(50);
     proxy = new TrafficControlProxy(serverPort, 1024 * 1024, latency, TimeUnit.NANOSECONDS);
@@ -113,7 +111,7 @@ public class ProxyTest {
       throws UnknownHostException, IOException, InterruptedException, ExecutionException {
     server = new Server();
     int serverPort = server.init();
-    executor.submit(server);
+    executor.execute(server);
 
     int latency = (int) TimeUnit.MILLISECONDS.toNanos(250);
     proxy = new TrafficControlProxy(serverPort, 1024 * 1024, latency, TimeUnit.NANOSECONDS);
@@ -145,7 +143,7 @@ public class ProxyTest {
     server = new Server();
     int serverPort = server.init();
     server.setMode("stream");
-    executor.submit(server);
+    executor.execute(server);
     assertEquals(server.mode(), "stream");
 
     int bandwidth = 64 * 1024;
@@ -171,7 +169,7 @@ public class ProxyTest {
     server = new Server();
     int serverPort = server.init();
     server.setMode("stream");
-    executor.submit(server);
+    executor.execute(server);
     assertEquals(server.mode(), "stream");
     int bandwidth = 10 * 1024 * 1024;
     proxy = new TrafficControlProxy(serverPort, bandwidth, 200, TimeUnit.MILLISECONDS);
@@ -204,7 +202,7 @@ public class ProxyTest {
   }
 
   // server with echo and streaming modes
-  private class Server implements Runnable {
+  private static class Server implements Runnable {
     private ServerSocket server;
     private Socket rcv;
     private boolean shutDown;

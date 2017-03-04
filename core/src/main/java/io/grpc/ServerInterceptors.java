@@ -32,7 +32,6 @@
 package io.grpc;
 
 import com.google.common.base.Preconditions;
-
 import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -197,11 +196,8 @@ public final class ServerInterceptors {
     // Wrap the descriptors
     for (final ServerMethodDefinition<?, ?> definition : serviceDef.getMethods()) {
       final MethodDescriptor<?, ?> originalMethodDescriptor = definition.getMethodDescriptor();
-      final MethodDescriptor<T, T> wrappedMethodDescriptor = MethodDescriptor
-          .create(originalMethodDescriptor.getType(),
-              originalMethodDescriptor.getFullMethodName(),
-              marshaller,
-              marshaller);
+      final MethodDescriptor<T, T> wrappedMethodDescriptor =
+          originalMethodDescriptor.toBuilder(marshaller, marshaller).build();
       wrappedDescriptors.add(wrappedMethodDescriptor);
       wrappedMethods.add(wrapMethod(definition, wrappedMethodDescriptor));
     }

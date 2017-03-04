@@ -39,14 +39,12 @@ import static org.mockito.Mockito.when;
 import io.grpc.CallOptions;
 import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
-
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
-
 import java.net.SocketAddress;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import javax.annotation.Nullable;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 /**
  * Common utility methods for tests.
@@ -109,5 +107,8 @@ final class TestUtils {
         .newClientTransport(any(SocketAddress.class), any(String.class), any(String.class));
 
     return captor;
+  }
+
+  private TestUtils() {
   }
 }

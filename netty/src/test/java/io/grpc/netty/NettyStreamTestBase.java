@@ -31,6 +31,7 @@
 
 package io.grpc.netty;
 
+import static com.google.common.base.Charsets.US_ASCII;
 import static io.grpc.netty.NettyTestUtil.messageFrame;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -54,7 +55,10 @@ import io.netty.channel.ChannelPromise;
 import io.netty.channel.DefaultChannelPromise;
 import io.netty.channel.EventLoop;
 import io.netty.handler.codec.http2.Http2Stream;
-
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.concurrent.TimeUnit;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -62,11 +66,6 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
-
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Base class for Netty stream unit tests.
@@ -201,7 +200,7 @@ public abstract class NettyStreamTestBase<T extends Stream> {
   }
 
   protected byte[] smallMessage() {
-    return MESSAGE.getBytes();
+    return MESSAGE.getBytes(US_ASCII);
   }
 
   protected byte[] largeMessage() {

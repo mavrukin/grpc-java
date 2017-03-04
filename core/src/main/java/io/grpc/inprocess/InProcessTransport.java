@@ -52,7 +52,6 @@ import io.grpc.internal.ServerStreamListener;
 import io.grpc.internal.ServerTransport;
 import io.grpc.internal.ServerTransportListener;
 import io.grpc.internal.StatsTraceContext;
-
 import java.io.InputStream;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -62,7 +61,6 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import javax.annotation.CheckReturnValue;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -73,6 +71,7 @@ class InProcessTransport implements ServerTransport, ConnectionClientTransport {
 
   private final LogId logId = LogId.allocate(getClass().getName());
   private final String name;
+  private final String authority;
   private ServerTransportListener serverTransportListener;
   private Attributes serverStreamAttributes;
   private ManagedClientTransport.Listener clientTransportListener;
@@ -86,7 +85,12 @@ class InProcessTransport implements ServerTransport, ConnectionClientTransport {
   private Set<InProcessStream> streams = new HashSet<InProcessStream>();
 
   public InProcessTransport(String name) {
+    this(name, null);
+  }
+
+  public InProcessTransport(String name, String authority) {
     this.name = name;
+    this.authority = authority;
   }
 
   @CheckReturnValue
@@ -140,7 +144,7 @@ class InProcessTransport implements ServerTransport, ConnectionClientTransport {
     }
     StatsTraceContext serverStatsTraceContext = serverTransportListener.methodDetermined(
         method.getFullMethodName(), headers);
-    return new InProcessStream(method, headers, serverStatsTraceContext).clientStream;
+    return new InProcessStream(method, headers, serverStatsTraceContext, authority).clientStream;
   }
 
   @Override
@@ -209,7 +213,7 @@ class InProcessTransport implements ServerTransport, ConnectionClientTransport {
   }
 
   @Override
-  public Attributes getAttrs() {
+  public Attributes getAttributes() {
     return Attributes.EMPTY;
   }
 
@@ -238,13 +242,15 @@ class InProcessTransport implements ServerTransport, ConnectionClientTransport {
     private final StatsTraceContext serverStatsTraceContext;
     private final Metadata headers;
     private final MethodDescriptor<?, ?> method;
+    private volatile String authority;
 
     private InProcessStream(MethodDescriptor<?, ?> method, Metadata headers,
-        StatsTraceContext serverStatsTraceContext) {
+        StatsTraceContext serverStatsTraceContext, String authority) {
       this.method = checkNotNull(method, "method");
       this.headers = checkNotNull(headers, "headers");
       this.serverStatsTraceContext =
           checkNotNull(serverStatsTraceContext, "serverStatsTraceContext");
+      this.authority = authority;
     }
 
     // Can be called multiple times due to races on both client and server closing at same time.
@@ -417,8 +423,13 @@ class InProcessTransport implements ServerTransport, ConnectionClientTransport {
       @Override
       public void setDecompressor(Decompressor decompressor) {}
 
-      @Override public Attributes attributes() {
+      @Override public Attributes getAttributes() {
         return serverStreamAttributes;
+      }
+
+      @Override
+      public String getAuthority() {
+        return InProcessStream.this.authority;
       }
 
       @Override
@@ -552,8 +563,7 @@ class InProcessTransport implements ServerTransport, ConnectionClientTransport {
 
       @Override
       public void setAuthority(String string) {
-        // TODO(ejona): Do something with this? Could be useful for testing, but can we "validate"
-        // it?
+        InProcessStream.this.authority = string;
       }
 
       @Override

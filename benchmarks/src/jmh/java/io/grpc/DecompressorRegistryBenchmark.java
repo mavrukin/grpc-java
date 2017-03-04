@@ -31,8 +31,12 @@
 
 package io.grpc;
 
-import static io.grpc.DecompressorRegistry.ACCEPT_ENCODING_JOINER;
-
+import io.grpc.internal.GrpcUtil;
+import io.grpc.internal.TransportFrameUtil;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
@@ -41,11 +45,6 @@ import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Decomressor Registry encoding benchmark.
@@ -85,21 +84,12 @@ public class DecompressorRegistryBenchmark {
   @Benchmark
   @BenchmarkMode(Mode.SampleTime)
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
-  public String dynamicAcceptEncoding() {
-    if (!reg.getAdvertisedMessageEncodings().isEmpty()) {
-      return ACCEPT_ENCODING_JOINER.join(reg.getAdvertisedMessageEncodings());
-    }
-    return "";
-  }
-
-  /**
-   * Javadoc comment.
-   */
-  @Benchmark
-  @BenchmarkMode(Mode.SampleTime)
-  @OutputTimeUnit(TimeUnit.NANOSECONDS)
-  public String staticAcceptEncoding() {
-    return reg.getRawAdvertisedMessageEncodings();
+  public byte[][] marshalOld() {
+    Metadata m = new Metadata();
+    m.put(
+        GrpcUtil.MESSAGE_ACCEPT_ENCODING_KEY,
+        InternalDecompressorRegistry.getRawAdvertisedMessageEncodings(reg));
+    return TransportFrameUtil.toHttp2Headers(m);
   }
 }
 

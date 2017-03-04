@@ -44,7 +44,6 @@ import static java.lang.Math.max;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-
 import io.grpc.Attributes;
 import io.grpc.CallOptions;
 import io.grpc.ClientCall;
@@ -55,11 +54,12 @@ import io.grpc.Context;
 import io.grpc.Deadline;
 import io.grpc.Decompressor;
 import io.grpc.DecompressorRegistry;
+import io.grpc.InternalDecompressorRegistry;
+import io.grpc.LoadBalancer.PickSubchannelArgs;
 import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
 import io.grpc.MethodDescriptor.MethodType;
 import io.grpc.Status;
-
 import java.io.InputStream;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
@@ -68,7 +68,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import javax.annotation.Nullable;
 
 /**
@@ -127,8 +126,10 @@ final class ClientCallImpl<ReqT, RespT> extends ClientCall<ReqT, RespT>
   interface ClientTransportProvider {
     /**
      * Returns a transport for a new call.
+     *
+     * @param args object containing call arguments.
      */
-    ClientTransport get(CallOptions callOptions, Metadata headers);
+    ClientTransport get(PickSubchannelArgs args);
   }
 
   ClientCallImpl<ReqT, RespT> setDecompressorRegistry(DecompressorRegistry decompressorRegistry) {
@@ -150,8 +151,9 @@ final class ClientCallImpl<ReqT, RespT> extends ClientCall<ReqT, RespT>
     }
 
     headers.discardAll(MESSAGE_ACCEPT_ENCODING_KEY);
-    String advertisedEncodings = decompressorRegistry.getRawAdvertisedMessageEncodings();
-    if (!advertisedEncodings.isEmpty()) {
+    byte[] advertisedEncodings =
+        InternalDecompressorRegistry.getRawAdvertisedMessageEncodings(decompressorRegistry);
+    if (advertisedEncodings.length != 0) {
       headers.put(MESSAGE_ACCEPT_ENCODING_KEY, advertisedEncodings);
     }
     statsTraceCtx.propagateToHeaders(headers);
@@ -216,7 +218,8 @@ final class ClientCallImpl<ReqT, RespT> extends ClientCall<ReqT, RespT>
     if (!deadlineExceeded) {
       updateTimeoutHeaders(effectiveDeadline, callOptions.getDeadline(),
           context.getDeadline(), headers);
-      ClientTransport transport = clientTransportProvider.get(callOptions, headers);
+      ClientTransport transport = clientTransportProvider.get(
+          new PickSubchannelArgsImpl(method, headers, callOptions));
       Context origContext = context.attach();
       try {
         stream = transport.newStream(method, headers, callOptions, statsTraceCtx);

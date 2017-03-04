@@ -1,5 +1,5 @@
 /*
- * Copyright 2015, Google Inc. All rights reserved.
+ * Copyright 2017, Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -33,15 +33,14 @@ package io.grpc.grpclb;
 
 import io.grpc.ExperimentalApi;
 import io.grpc.LoadBalancer;
-import io.grpc.TransportManager;
+import io.grpc.PickFirstBalancerFactory;
+import io.grpc.util.RoundRobinLoadBalancerFactory;
 
 /**
  * A factory for {@link LoadBalancer}s that uses the GRPCLB protocol.
  *
  * <p><b>Experimental:</b>This only works with the GRPCLB load-balancer service, which is not
- * available yet. Right now it's only good for internal testing. It's not feature-complete either,
- * so before using it, make sure you have read all the {@code TODO} comments in {@link
- * GrpclbLoadBalancer}.
+ * available yet. Right now it's only good for internal testing.
  */
 @ExperimentalApi("https://github.com/grpc/grpc-java/issues/1782")
 public class GrpclbLoadBalancerFactory extends LoadBalancer.Factory {
@@ -56,7 +55,9 @@ public class GrpclbLoadBalancerFactory extends LoadBalancer.Factory {
   }
 
   @Override
-  public <T> LoadBalancer<T> newLoadBalancer(String serviceName, TransportManager<T> tm) {
-    return new GrpclbLoadBalancer<T>(serviceName, tm);
+  public LoadBalancer newLoadBalancer(LoadBalancer.Helper helper) {
+    return new GrpclbLoadBalancer(
+        helper, PickFirstBalancerFactory.getInstance(),
+        RoundRobinLoadBalancerFactory.getInstance());
   }
 }

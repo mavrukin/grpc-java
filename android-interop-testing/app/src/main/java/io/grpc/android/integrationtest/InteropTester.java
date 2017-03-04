@@ -36,12 +36,10 @@ import static junit.framework.Assert.assertNull;
 import static junit.framework.Assert.assertTrue;
 import static junit.framework.Assert.fail;
 
-import com.google.protobuf.nano.EmptyProtos;
-import com.google.protobuf.nano.MessageNano;
-
 import android.os.AsyncTask;
 import android.util.Log;
-
+import com.google.protobuf.nano.EmptyProtos;
+import com.google.protobuf.nano.MessageNano;
 import io.grpc.CallOptions;
 import io.grpc.ClientCall;
 import io.grpc.ManagedChannel;
@@ -60,10 +58,8 @@ import io.grpc.android.integrationtest.nano.TestServiceGrpc;
 import io.grpc.android.integrationtest.nano.UnimplementedServiceGrpc;
 import io.grpc.stub.StreamObserver;
 import io.grpc.testing.StreamRecorder;
-
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.lang.RuntimeException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -82,9 +78,10 @@ final class InteropTester extends AsyncTask<Void, Void, String> {
   private TestServiceGrpc.TestServiceStub asyncStub;
   private String testCase;
   private TestListener listener;
-  private static int TIMEOUT_MILLIS = 5000;
+  private static final int TIMEOUT_MILLIS = 5000;
 
-  class ResponseObserver implements StreamObserver<Messages.StreamingOutputCallResponse> {
+  private static final class ResponseObserver
+      implements StreamObserver<Messages.StreamingOutputCallResponse> {
     public LinkedBlockingQueue<Object> responses = new LinkedBlockingQueue<Object>();
     final Object magicTailResponse = new Object();
 
@@ -322,7 +319,6 @@ final class InteropTester extends AsyncTask<Void, Void, String> {
     goldenResponses[2].payload.body = new byte[2653];
     goldenResponses[3].payload.body = new byte[58979];
 
-    @SuppressWarnings("unchecked")
     ResponseObserver responseObserver = new ResponseObserver();
     StreamObserver<Messages.StreamingOutputCallRequest> requestObserver
         = asyncStub.fullDuplexCall(responseObserver);
@@ -342,7 +338,6 @@ final class InteropTester extends AsyncTask<Void, Void, String> {
   }
 
   public void emptyStream() throws Exception {
-    @SuppressWarnings("unchecked")
     ResponseObserver responseObserver = new ResponseObserver();
     StreamObserver<StreamingOutputCallRequest> requestObserver
         = asyncStub.fullDuplexCall(responseObserver);
@@ -758,8 +753,8 @@ final class InteropTester extends AsyncTask<Void, Void, String> {
     long actuallyFreeMemory = r.maxMemory() - usedMem;
     long wantedFreeMemory = 64 * 1024 * 1024;
     if (actuallyFreeMemory < wantedFreeMemory) {
-      Log.i(LOG_TAG, "Skipping due to lack of memory.  " + 
-          "Have: " + actuallyFreeMemory + " Want: " + wantedFreeMemory);
+      Log.i(LOG_TAG, "Skipping due to lack of memory.  "
+          + "Have: " + actuallyFreeMemory + " Want: " + wantedFreeMemory);
       return true;
     }
     return false;

@@ -32,26 +32,23 @@
 package io.grpc.internal;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.grpc.ConnectivityState.READY;
-import static io.grpc.ConnectivityState.TRANSIENT_FAILURE;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Supplier;
 import com.google.instrumentation.stats.StatsContextFactory;
-
 import io.grpc.Attributes;
 import io.grpc.CallOptions;
 import io.grpc.ClientCall;
 import io.grpc.ConnectivityStateInfo;
 import io.grpc.EquivalentAddressGroup;
-import io.grpc.LoadBalancer2.PickResult;
-import io.grpc.LoadBalancer2.SubchannelPicker;
+import io.grpc.LoadBalancer;
+import io.grpc.LoadBalancer.PickResult;
+import io.grpc.LoadBalancer.PickSubchannelArgs;
+import io.grpc.LoadBalancer.SubchannelPicker;
 import io.grpc.ManagedChannel;
-import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
 import io.grpc.Status;
 import io.grpc.internal.ClientCallImpl.ClientTransportProvider;
-
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -61,7 +58,7 @@ import java.util.logging.Logger;
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
- * A ManagedChannel backed by a single {@link InternalSubchannel} and used for {@link LoadBalancer2}
+ * A ManagedChannel backed by a single {@link InternalSubchannel} and used for {@link LoadBalancer}
  * to its own RPC needs.
  */
 @ThreadSafe
@@ -74,7 +71,7 @@ final class OobChannel extends ManagedChannel implements WithLogId {
   private final LogId logId = LogId.allocate(getClass().getName());
   private final StatsContextFactory statsFactory;
   private final String authority;
-  private final DelayedClientTransport2 delayedTransport;
+  private final DelayedClientTransport delayedTransport;
   private final ObjectPool<? extends Executor> executorPool;
   private final Executor executor;
   private final ScheduledExecutorService deadlineCancellationExecutor;
@@ -84,7 +81,7 @@ final class OobChannel extends ManagedChannel implements WithLogId {
 
   private final ClientTransportProvider transportProvider = new ClientTransportProvider() {
     @Override
-    public ClientTransport get(CallOptions callOptions, Metadata headers) {
+    public ClientTransport get(PickSubchannelArgs args) {
       // delayed transport's newStream() always acquires a lock, but concurrent performance doesn't
       // matter here because OOB communication should be sparse, and it's not on application RPC's
       // critical path.
@@ -103,7 +100,7 @@ final class OobChannel extends ManagedChannel implements WithLogId {
     this.deadlineCancellationExecutor = checkNotNull(
         deadlineCancellationExecutor, "deadlineCancellationExecutor");
     this.stopwatchSupplier = checkNotNull(stopwatchSupplier, "stopwatchSupplier");
-    this.delayedTransport = new DelayedClientTransport2(executor, channelExecutor);
+    this.delayedTransport = new DelayedClientTransport(executor, channelExecutor);
     this.delayedTransport.start(new ManagedClientTransport.Listener() {
         @Override
         public void transportShutdown(Status s) {
@@ -161,7 +158,7 @@ final class OobChannel extends ManagedChannel implements WithLogId {
         final PickResult result = PickResult.withSubchannel(subchannelImpl);
 
         @Override
-        public PickResult pickSubchannel(Attributes affinity, Metadata headers) {
+        public PickResult pickSubchannel(PickSubchannelArgs args) {
           return result;
         }
       };
@@ -230,7 +227,7 @@ final class OobChannel extends ManagedChannel implements WithLogId {
             final PickResult errorResult = PickResult.withError(newState.getStatus());
 
             @Override
-            public PickResult pickSubchannel(Attributes affinity, Metadata headers) {
+            public PickResult pickSubchannel(PickSubchannelArgs args) {
               return errorResult;
             }
           });

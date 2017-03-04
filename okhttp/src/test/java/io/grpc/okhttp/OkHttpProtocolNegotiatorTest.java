@@ -31,6 +31,7 @@
 
 package io.grpc.okhttp;
 
+import static com.google.common.base.Charsets.UTF_8;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -41,12 +42,16 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-
 import io.grpc.okhttp.OkHttpProtocolNegotiator.AndroidNegotiator;
 import io.grpc.okhttp.OkHttpProtocolNegotiator.AndroidNegotiator.TlsExtensionType;
 import io.grpc.okhttp.internal.Platform;
 import io.grpc.okhttp.internal.Protocol;
-
+import java.io.IOException;
+import java.security.Provider;
+import java.security.Security;
+import javax.net.ssl.HandshakeCompletedListener;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocket;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -55,15 +60,6 @@ import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
-
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.security.Provider;
-import java.security.Security;
-
-import javax.net.ssl.HandshakeCompletedListener;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.SSLSocket;
 
 /**
  * Tests for {@link OkHttpProtocolNegotiator}.
@@ -288,7 +284,7 @@ public class OkHttpProtocolNegotiatorTest {
   public static class FakeAndroidSslSocketAlpn extends FakeAndroidSslSocket {
     @Override
     public byte[] getAlpnSelectedProtocol() {
-      return "h2".getBytes(StandardCharsets.UTF_8);
+      return "h2".getBytes(UTF_8);
     }
   }
 
@@ -306,7 +302,7 @@ public class OkHttpProtocolNegotiatorTest {
   public static class FakeAndroidSslSocketNpn extends FakeAndroidSslSocket {
     @Override
     public byte[] getNpnSelectedProtocol() {
-      return "h2".getBytes(StandardCharsets.UTF_8);
+      return "h2".getBytes(UTF_8);
     }
   }
 

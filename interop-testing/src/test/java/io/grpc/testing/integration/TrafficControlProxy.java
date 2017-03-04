@@ -34,7 +34,6 @@ package io.grpc.testing.integration;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import io.netty.util.concurrent.DefaultThreadFactory;
-
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -102,7 +101,7 @@ public final class TrafficControlProxy {
     // client normally would.
     clientAcceptor = new ServerSocket();
     clientAcceptor.bind(new InetSocketAddress(localhost, 0));
-    executor.submit(new Runnable() {
+    executor.execute(new Runnable() {
       @Override
       public void run() {
         try {
@@ -144,10 +143,10 @@ public final class TrafficControlProxy {
     MessageQueue clientPipe = new MessageQueue(clientIn, clientOut);
     MessageQueue serverPipe = new MessageQueue(serverIn, serverOut);
 
-    executor.submit(new Thread(new Reader(clientPipe)));
-    executor.submit(new Thread(new Writer(clientPipe)));
-    executor.submit(new Thread(new Reader(serverPipe)));
-    executor.submit(new Thread(new Writer(serverPipe)));
+    executor.execute(new Reader(clientPipe));
+    executor.execute(new Writer(clientPipe));
+    executor.execute(new Reader(serverPipe));
+    executor.execute(new Writer(serverPipe));
   }
 
   private final class Reader implements Runnable {

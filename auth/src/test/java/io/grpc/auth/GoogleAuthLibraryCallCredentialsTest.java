@@ -51,15 +51,22 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
-
 import io.grpc.Attributes;
-import io.grpc.CallCredentials.MetadataApplier;
 import io.grpc.CallCredentials;
+import io.grpc.CallCredentials.MetadataApplier;
 import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
 import io.grpc.SecurityLevel;
 import io.grpc.Status;
-
+import java.io.IOException;
+import java.net.URI;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+import java.util.concurrent.Executor;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -70,16 +77,6 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
-
-import java.io.IOException;
-import java.net.URI;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
-import java.util.concurrent.Executor;
 
 /**
  * Tests for {@link GoogleAuthLibraryCallCredentials}.
@@ -127,8 +124,12 @@ public class GoogleAuthLibraryCallCredentialsTest {
   @Before
   public void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
-    method = MethodDescriptor.create(
-        MethodDescriptor.MethodType.UNKNOWN, "a.service/method", stringMarshaller, intMarshaller);
+    method = MethodDescriptor.<String, Integer>newBuilder()
+        .setType(MethodDescriptor.MethodType.UNKNOWN)
+        .setFullMethodName("a.service/method")
+        .setRequestMarshaller(stringMarshaller)
+        .setResponseMarshaller(intMarshaller)
+        .build();
     expectedUri = new URI("https://testauthority/a.service");
     doAnswer(new Answer<Void>() {
         @Override

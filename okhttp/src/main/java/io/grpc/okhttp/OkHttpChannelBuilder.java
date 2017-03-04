@@ -36,11 +36,9 @@ import static io.grpc.internal.GrpcUtil.DEFAULT_KEEPALIVE_TIMEOUT_NANOS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-
 import com.squareup.okhttp.CipherSuite;
 import com.squareup.okhttp.ConnectionSpec;
 import com.squareup.okhttp.TlsVersion;
-
 import io.grpc.Attributes;
 import io.grpc.ExperimentalApi;
 import io.grpc.Internal;
@@ -52,7 +50,6 @@ import io.grpc.internal.GrpcUtil;
 import io.grpc.internal.SharedResourceHolder;
 import io.grpc.internal.SharedResourceHolder.Resource;
 import io.grpc.okhttp.internal.Platform;
-
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.security.GeneralSecurityException;
@@ -60,7 +57,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
@@ -315,9 +311,20 @@ public class OkHttpChannelBuilder extends
       if (closed) {
         throw new IllegalStateException("The transport factory is closed.");
       }
+      InetSocketAddress proxyAddress = null;
+      String proxy = System.getenv("GRPC_PROXY_EXP");
+      if (proxy != null) {
+        String[] parts = proxy.split(":", 2);
+        int port = 80;
+        if (parts.length > 1) {
+          port = Integer.parseInt(parts[1]);
+        }
+        proxyAddress = new InetSocketAddress(parts[0], port);
+      }
       InetSocketAddress inetSocketAddr = (InetSocketAddress) addr;
       OkHttpClientTransport transport = new OkHttpClientTransport(inetSocketAddr, authority,
-          userAgent, executor, socketFactory, Utils.convertSpec(connectionSpec), maxMessageSize);
+          userAgent, executor, socketFactory, Utils.convertSpec(connectionSpec), maxMessageSize,
+          proxyAddress, null, null);
       if (enableKeepAlive) {
         transport.enableKeepAlive(true, keepAliveDelayNanos, keepAliveTimeoutNanos);
       }

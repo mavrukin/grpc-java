@@ -36,7 +36,6 @@ import io.grpc.CallOptions;
 import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
 import io.grpc.Status;
-
 import java.util.concurrent.Executor;
 
 abstract class ForwardingConnectionClientTransport implements ConnectionClientTransport {
@@ -78,8 +77,8 @@ abstract class ForwardingConnectionClientTransport implements ConnectionClientTr
   }
 
   @Override
-  public Attributes getAttrs() {
-    return delegate().getAttrs();
+  public Attributes getAttributes() {
+    return delegate().getAttributes();
   }
 
   @Override

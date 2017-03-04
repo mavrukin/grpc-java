@@ -22,9 +22,9 @@ import static io.grpc.stub.ServerCalls.asyncUnimplementedStreamingCall;
  * </pre>
  */
 @javax.annotation.Generated(
-    value = "by gRPC proto compiler (version 1.1.0-SNAPSHOT)",
+    value = "by gRPC proto compiler (version 1.2.0-SNAPSHOT)",
     comments = "Source: io/grpc/testing/integration/test.proto")
-public class TestServiceGrpc {
+public final class TestServiceGrpc {
 
   private TestServiceGrpc() {}
 
@@ -498,7 +498,7 @@ public class TestServiceGrpc {
   private static final int METHODID_FULL_DUPLEX_CALL = 5;
   private static final int METHODID_HALF_DUPLEX_CALL = 6;
 
-  private static class MethodHandlers<Req, Resp> implements
+  private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
       io.grpc.stub.ServerCalls.ServerStreamingMethod<Req, Resp>,
       io.grpc.stub.ServerCalls.ClientStreamingMethod<Req, Resp>,
@@ -506,7 +506,7 @@ public class TestServiceGrpc {
     private final TestServiceImplBase serviceImpl;
     private final int methodId;
 
-    public MethodHandlers(TestServiceImplBase serviceImpl, int methodId) {
+    MethodHandlers(TestServiceImplBase serviceImpl, int methodId) {
       this.serviceImpl = serviceImpl;
       this.methodId = methodId;
     }
@@ -571,16 +571,16 @@ public class TestServiceGrpc {
       synchronized (TestServiceGrpc.class) {
         result = serviceDescriptor;
         if (result == null) {
-          serviceDescriptor = result = new io.grpc.ServiceDescriptor(
-              SERVICE_NAME,
-              new TestServiceDescriptorSupplier(),
-              METHOD_EMPTY_CALL,
-              METHOD_UNARY_CALL,
-              METHOD_STREAMING_OUTPUT_CALL,
-              METHOD_STREAMING_INPUT_CALL,
-              METHOD_FULL_DUPLEX_CALL,
-              METHOD_HALF_DUPLEX_CALL,
-              METHOD_UNIMPLEMENTED_CALL);
+          serviceDescriptor = result = io.grpc.ServiceDescriptor.newBuilder(SERVICE_NAME)
+              .setSchemaDescriptor(new TestServiceDescriptorSupplier())
+              .addMethod(METHOD_EMPTY_CALL)
+              .addMethod(METHOD_UNARY_CALL)
+              .addMethod(METHOD_STREAMING_OUTPUT_CALL)
+              .addMethod(METHOD_STREAMING_INPUT_CALL)
+              .addMethod(METHOD_FULL_DUPLEX_CALL)
+              .addMethod(METHOD_HALF_DUPLEX_CALL)
+              .addMethod(METHOD_UNIMPLEMENTED_CALL)
+              .build();
         }
       }
     }

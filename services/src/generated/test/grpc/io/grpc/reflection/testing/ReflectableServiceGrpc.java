@@ -18,9 +18,9 @@ import static io.grpc.stub.ServerCalls.asyncUnimplementedStreamingCall;
 /**
  */
 @javax.annotation.Generated(
-    value = "by gRPC proto compiler (version 1.1.0-SNAPSHOT)",
+    value = "by gRPC proto compiler (version 1.2.0-SNAPSHOT)",
     comments = "Source: io/grpc/reflection/testing/reflection_test.proto")
-public class ReflectableServiceGrpc {
+public final class ReflectableServiceGrpc {
 
   private ReflectableServiceGrpc() {}
 
@@ -166,7 +166,7 @@ public class ReflectableServiceGrpc {
 
   private static final int METHODID_METHOD = 0;
 
-  private static class MethodHandlers<Req, Resp> implements
+  private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
       io.grpc.stub.ServerCalls.ServerStreamingMethod<Req, Resp>,
       io.grpc.stub.ServerCalls.ClientStreamingMethod<Req, Resp>,
@@ -174,7 +174,7 @@ public class ReflectableServiceGrpc {
     private final ReflectableServiceImplBase serviceImpl;
     private final int methodId;
 
-    public MethodHandlers(ReflectableServiceImplBase serviceImpl, int methodId) {
+    MethodHandlers(ReflectableServiceImplBase serviceImpl, int methodId) {
       this.serviceImpl = serviceImpl;
       this.methodId = methodId;
     }
@@ -218,10 +218,10 @@ public class ReflectableServiceGrpc {
       synchronized (ReflectableServiceGrpc.class) {
         result = serviceDescriptor;
         if (result == null) {
-          serviceDescriptor = result = new io.grpc.ServiceDescriptor(
-              SERVICE_NAME,
-              new ReflectableServiceDescriptorSupplier(),
-              METHOD_METHOD);
+          serviceDescriptor = result = io.grpc.ServiceDescriptor.newBuilder(SERVICE_NAME)
+              .setSchemaDescriptor(new ReflectableServiceDescriptorSupplier())
+              .addMethod(METHOD_METHOD)
+              .build();
         }
       }
     }

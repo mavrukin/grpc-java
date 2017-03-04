@@ -35,14 +35,13 @@ import io.grpc.Attributes;
 import io.grpc.Compressor;
 import io.grpc.Decompressor;
 import io.grpc.Status;
-
 import java.io.InputStream;
 
 /**
  * An implementation of {@link ClientStream} that silently does nothing for the operations.
  */
 public class NoopClientStream implements ClientStream {
-  public static NoopClientStream INSTANCE = new NoopClientStream();
+  public static final NoopClientStream INSTANCE = new NoopClientStream();
 
   @Override
   public void setAuthority(String authority) {}

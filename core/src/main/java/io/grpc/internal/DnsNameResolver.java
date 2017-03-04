@@ -33,14 +33,12 @@ package io.grpc.internal;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-
 import io.grpc.Attributes;
 import io.grpc.NameResolver;
 import io.grpc.ResolvedServerInfo;
 import io.grpc.ResolvedServerInfoGroup;
 import io.grpc.Status;
 import io.grpc.internal.SharedResourceHolder.Resource;
-
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -50,7 +48,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -143,6 +140,15 @@ class DnsNameResolver extends NameResolver {
           resolving = true;
         }
         try {
+          if (System.getenv("GRPC_PROXY_EXP") != null) {
+            ResolvedServerInfoGroup servers = ResolvedServerInfoGroup.builder()
+                .add(new ResolvedServerInfo(
+                    InetSocketAddress.createUnresolved(host, port), Attributes.EMPTY))
+                .build();
+            savedListener.onUpdate(Collections.singletonList(servers), Attributes.EMPTY);
+            return;
+          }
+
           try {
             inetAddrs = getAllByName(host);
           } catch (UnknownHostException e) {

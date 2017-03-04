@@ -38,8 +38,11 @@ import io.grpc.ServerCall.Listener;
 import io.grpc.ServerCallHandler;
 import io.grpc.ServerServiceDefinition;
 import io.grpc.ServiceDescriptor;
+import io.grpc.testing.TestMethodDescriptors;
 import io.grpc.util.MutableHandlerRegistry;
-
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Level;
@@ -48,10 +51,6 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.infra.Blackhole;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
 
 /**
  * Benchmark for {@link MutableHandlerRegistry}.
@@ -88,13 +87,17 @@ public class HandlerRegistryBenchmark {
           new ServiceDescriptor(serviceName));
       for (int methodIndex = 0; methodIndex < methodCountPerService; ++methodIndex) {
         String methodName = randomString();
-        MethodDescriptor<Object, Object> methodDescriptor = MethodDescriptor.create(
-            MethodDescriptor.MethodType.UNKNOWN,
-            MethodDescriptor.generateFullMethodName(serviceName, methodName), null, null);
+
+        MethodDescriptor<Void, Void> methodDescriptor = MethodDescriptor.<Void, Void>newBuilder()
+            .setType(MethodDescriptor.MethodType.UNKNOWN)
+            .setFullMethodName(MethodDescriptor.generateFullMethodName(serviceName, methodName))
+            .setRequestMarshaller(TestMethodDescriptors.voidMarshaller())
+            .setResponseMarshaller(TestMethodDescriptors.voidMarshaller())
+            .build();
         serviceBuilder.addMethod(methodDescriptor,
-            new ServerCallHandler<Object, Object>() {
+            new ServerCallHandler<Void, Void>() {
               @Override
-              public Listener<Object> startCall(ServerCall<Object, Object> call,
+              public Listener<Void> startCall(ServerCall<Void, Void> call,
                   Metadata headers) {
                 return null;
               }

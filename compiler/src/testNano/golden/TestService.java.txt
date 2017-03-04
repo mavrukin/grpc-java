@@ -23,9 +23,9 @@ import java.io.IOException;
  * </pre>
  */
 @javax.annotation.Generated(
-    value = "by gRPC proto compiler (version 1.1.0-SNAPSHOT)",
+    value = "by gRPC proto compiler (version 1.2.0-SNAPSHOT)",
     comments = "Source: test.proto")
-public class TestServiceGrpc {
+public final class TestServiceGrpc {
 
   private TestServiceGrpc() {}
 
@@ -453,7 +453,7 @@ public class TestServiceGrpc {
   private static final int METHODID_FULL_BIDI_CALL = 3;
   private static final int METHODID_HALF_BIDI_CALL = 4;
 
-  private static class MethodHandlers<Req, Resp> implements
+  private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
       io.grpc.stub.ServerCalls.ServerStreamingMethod<Req, Resp>,
       io.grpc.stub.ServerCalls.ClientStreamingMethod<Req, Resp>,
@@ -461,7 +461,7 @@ public class TestServiceGrpc {
     private final TestServiceImplBase serviceImpl;
     private final int methodId;
 
-    public MethodHandlers(TestServiceImplBase serviceImpl, int methodId) {
+    MethodHandlers(TestServiceImplBase serviceImpl, int methodId) {
       this.serviceImpl = serviceImpl;
       this.methodId = methodId;
     }
@@ -511,13 +511,13 @@ public class TestServiceGrpc {
       synchronized (TestServiceGrpc.class) {
         result = serviceDescriptor;
         if (result == null) {
-          serviceDescriptor = result = new io.grpc.ServiceDescriptor(
-              SERVICE_NAME,
-              METHOD_UNARY_CALL,
-              METHOD_STREAMING_OUTPUT_CALL,
-              METHOD_STREAMING_INPUT_CALL,
-              METHOD_FULL_BIDI_CALL,
-              METHOD_HALF_BIDI_CALL);
+          serviceDescriptor = result = io.grpc.ServiceDescriptor.newBuilder(SERVICE_NAME)
+              .addMethod(METHOD_UNARY_CALL)
+              .addMethod(METHOD_STREAMING_OUTPUT_CALL)
+              .addMethod(METHOD_STREAMING_INPUT_CALL)
+              .addMethod(METHOD_FULL_BIDI_CALL)
+              .addMethod(METHOD_HALF_BIDI_CALL)
+              .build();
         }
       }
     }

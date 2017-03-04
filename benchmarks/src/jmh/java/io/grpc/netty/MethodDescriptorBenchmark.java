@@ -35,17 +35,15 @@ import io.grpc.InternalKnownTransport;
 import io.grpc.InternalMethodDescriptor;
 import io.grpc.MethodDescriptor;
 import io.netty.util.AsciiString;
-
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
-
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Benchmark for Method Descriptors.
@@ -66,8 +64,12 @@ public class MethodDescriptorBenchmark {
     }
   };
 
-  MethodDescriptor<Void, Void> method = MethodDescriptor.create(
-      MethodDescriptor.MethodType.UNARY, "Service/Method", marshaller, marshaller);
+  MethodDescriptor<Void, Void> method = MethodDescriptor.<Void, Void>newBuilder()
+      .setType(MethodDescriptor.MethodType.UNARY)
+      .setFullMethodName("Service/Method")
+      .setRequestMarshaller(marshaller)
+      .setResponseMarshaller(marshaller)
+      .build();
 
   InternalMethodDescriptor imd = new InternalMethodDescriptor(InternalKnownTransport.NETTY);
 

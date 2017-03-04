@@ -37,14 +37,12 @@ import io.grpc.internal.InternalServer;
 import io.grpc.internal.ManagedClientTransport;
 import io.grpc.internal.testing.AbstractTransportTest;
 import io.grpc.netty.NettyServerBuilder;
-
+import java.net.InetSocketAddress;
 import org.junit.After;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.net.InetSocketAddress;
 
 /** Unit tests for OkHttp transport. */
 @RunWith(JUnit4.class)
@@ -78,11 +76,16 @@ public class OkHttpTransportTest extends AbstractTransportTest {
   }
 
   @Override
+  protected String testAuthority(InternalServer server) {
+    return "127.0.0.1:" + server.getPort();
+  }
+
+  @Override
   protected ManagedClientTransport newClientTransport(InternalServer server) {
     int port = server.getPort();
     return clientFactory.newClientTransport(
         new InetSocketAddress("127.0.0.1", port),
-        "127.0.0.1:" + port,
+        testAuthority(server),
         null /* agent */);
   }
 

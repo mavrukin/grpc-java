@@ -45,6 +45,7 @@ import static org.mockito.Matchers.isNotNull;
 import static org.mockito.Matchers.notNull;
 import static org.mockito.Matchers.same;
 import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -58,7 +59,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.instrumentation.stats.RpcConstants;
 import com.google.instrumentation.stats.StatsContext;
 import com.google.instrumentation.stats.TagValue;
-
 import io.grpc.Attributes;
 import io.grpc.Compressor;
 import io.grpc.CompressorRegistry;
@@ -69,7 +69,6 @@ import io.grpc.HandlerRegistry;
 import io.grpc.IntegerMarshaller;
 import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
-import io.grpc.MethodDescriptor.MethodType;
 import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
 import io.grpc.ServerServiceDefinition;
@@ -77,10 +76,21 @@ import io.grpc.ServerTransportFilter;
 import io.grpc.ServiceDescriptor;
 import io.grpc.Status;
 import io.grpc.StringMarshaller;
+import io.grpc.internal.ServerImpl.JumpToApplicationThreadServerStreamListener;
 import io.grpc.internal.testing.StatsTestUtils;
 import io.grpc.internal.testing.StatsTestUtils.FakeStatsContextFactory;
 import io.grpc.util.MutableHandlerRegistry;
-
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.SocketAddress;
+import java.util.List;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -94,18 +104,6 @@ import org.mockito.Captor;
 import org.mockito.Matchers;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.SocketAddress;
-import java.util.List;
-import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 /** Unit tests for {@link ServerImpl}. */
 @RunWith(JUnit4.class)
@@ -380,8 +378,12 @@ public class ServerImplTest {
         = StatsTraceContext.createStatsHeader(statsCtxFactory);
     final AtomicReference<ServerCall<String, Integer>> callReference
         = new AtomicReference<ServerCall<String, Integer>>();
-    MethodDescriptor<String, Integer> method = MethodDescriptor.create(
-        MethodType.UNKNOWN, "Waiter/serve", STRING_MARSHALLER, INTEGER_MARSHALLER);
+    MethodDescriptor<String, Integer> method = MethodDescriptor.<String, Integer>newBuilder()
+        .setType(MethodDescriptor.MethodType.UNKNOWN)
+        .setFullMethodName("Waiter/serve")
+        .setRequestMarshaller(STRING_MARSHALLER)
+        .setResponseMarshaller(INTEGER_MARSHALLER)
+        .build();
     mutableFallbackRegistry.addService(ServerServiceDefinition.builder(
         new ServiceDescriptor("Waiter", method))
         .addMethod(
@@ -421,6 +423,7 @@ public class ServerImplTest {
     assertEquals(1, executor.runDueTasks());
     ServerCall<String, Integer> call = callReference.get();
     assertNotNull(call);
+    verify(stream).getAuthority();
 
     String order = "Lots of pizza, please";
     streamListener.messageRead(STRING_MARSHALLER.stream(order));
@@ -568,9 +571,12 @@ public class ServerImplTest {
   public void exceptionInStartCallPropagatesToStream() throws Exception {
     createAndStartServer(NO_FILTERS);
     final Status status = Status.ABORTED.withDescription("Oh, no!");
-    MethodDescriptor<String, Integer> method = MethodDescriptor
-        .create(MethodType.UNKNOWN, "Waiter/serve",
-            STRING_MARSHALLER, INTEGER_MARSHALLER);
+    MethodDescriptor<String, Integer> method = MethodDescriptor.<String, Integer>newBuilder()
+        .setType(MethodDescriptor.MethodType.UNKNOWN)
+        .setFullMethodName("Waiter/serve")
+        .setRequestMarshaller(STRING_MARSHALLER)
+        .setResponseMarshaller(INTEGER_MARSHALLER)
+        .build();
     mutableFallbackRegistry.addService(ServerServiceDefinition.builder(
         new ServiceDescriptor("Waiter", method))
         .addMethod(method,
@@ -599,6 +605,7 @@ public class ServerImplTest {
     verifyNoMoreInteractions(stream);
 
     assertEquals(1, executor.runDueTasks());
+    verify(stream).getAuthority();
     verify(stream).close(same(status), notNull(Metadata.class));
     verify(stream, atLeast(1)).statsTraceContext();
     verifyNoMoreInteractions(stream);
@@ -687,8 +694,12 @@ public class ServerImplTest {
   @Test
   public void testCallContextIsBoundInListenerCallbacks() throws Exception {
     createAndStartServer(NO_FILTERS);
-    MethodDescriptor<String, Integer> method = MethodDescriptor.create(
-        MethodType.UNKNOWN, "Waiter/serve", STRING_MARSHALLER, INTEGER_MARSHALLER);
+    MethodDescriptor<String, Integer> method = MethodDescriptor.<String, Integer>newBuilder()
+        .setType(MethodDescriptor.MethodType.UNKNOWN)
+        .setFullMethodName("Waiter/serve")
+        .setRequestMarshaller(STRING_MARSHALLER)
+        .setResponseMarshaller(INTEGER_MARSHALLER)
+        .build();
     final AtomicBoolean  onReadyCalled = new AtomicBoolean(false);
     final AtomicBoolean onMessageCalled = new AtomicBoolean(false);
     final AtomicBoolean onHalfCloseCalled = new AtomicBoolean(false);
@@ -766,7 +777,7 @@ public class ServerImplTest {
     streamListener.messageRead(new ByteArrayInputStream(new byte[0]));
     assertEquals(1, executor.runDueTasks());
     assertTrue(onMessageCalled.get());
-    
+
     streamListener.halfClosed();
     assertEquals(1, executor.runDueTasks());
     assertTrue(onHalfCloseCalled.get());
@@ -797,8 +808,13 @@ public class ServerImplTest {
 
     final AtomicReference<ServerCall<String, Integer>> callReference
         = new AtomicReference<ServerCall<String, Integer>>();
-    MethodDescriptor<String, Integer> method = MethodDescriptor.create(
-        MethodType.UNKNOWN, "Waiter/serve", STRING_MARSHALLER, INTEGER_MARSHALLER);
+    MethodDescriptor<String, Integer> method = MethodDescriptor.<String, Integer>newBuilder()
+        .setType(MethodDescriptor.MethodType.UNKNOWN)
+        .setFullMethodName("Waiter/serve")
+        .setRequestMarshaller(STRING_MARSHALLER)
+        .setResponseMarshaller(INTEGER_MARSHALLER)
+        .build();
+
     mutableFallbackRegistry.addService(ServerServiceDefinition.builder(
         new ServiceDescriptor("Waiter", method))
         .addMethod(method,
@@ -866,8 +882,12 @@ public class ServerImplTest {
   @Test
   public void handlerRegistryPriorities() throws Exception {
     fallbackRegistry = mock(HandlerRegistry.class);
-    MethodDescriptor<String, Integer> method1 = MethodDescriptor.create(
-        MethodType.UNKNOWN, "Service1/Method1", STRING_MARSHALLER, INTEGER_MARSHALLER);
+    MethodDescriptor<String, Integer> method1 = MethodDescriptor.<String, Integer>newBuilder()
+        .setType(MethodDescriptor.MethodType.UNKNOWN)
+        .setFullMethodName("Service1/Method1")
+        .setRequestMarshaller(STRING_MARSHALLER)
+        .setResponseMarshaller(INTEGER_MARSHALLER)
+        .build();
     registry = new InternalHandlerRegistry.Builder()
         .addService(ServerServiceDefinition.builder(new ServiceDescriptor("Service1", method1))
             .addMethod(method1, callHandler).build())
@@ -896,6 +916,134 @@ public class ServerImplTest {
 
     verifyNoMoreInteractions(callHandler);
     verifyNoMoreInteractions(fallbackRegistry);
+  }
+
+  @Test
+  public void messageRead_errorCancelsCall() throws Exception {
+    JumpToApplicationThreadServerStreamListener listener
+        = new JumpToApplicationThreadServerStreamListener(
+            executor.getScheduledExecutorService(), stream, Context.ROOT.withCancellation());
+    ServerStreamListener mockListener = mock(ServerStreamListener.class);
+    listener.setListener(mockListener);
+
+    Throwable expectedT = new AssertionError();
+    doThrow(expectedT).when(mockListener).messageRead(any(InputStream.class));
+    // Closing the InputStream is done by the delegated listener (generally ServerCallImpl)
+    listener.messageRead(mock(InputStream.class));
+    try {
+      executor.runDueTasks();
+      fail("Expected exception");
+    } catch (Throwable t) {
+      assertSame(expectedT, t);
+      verify(stream).close(statusCaptor.capture(), any(Metadata.class));
+      assertSame(expectedT, statusCaptor.getValue().getCause());
+    }
+  }
+
+  @Test
+  public void messageRead_runtimeExceptionCancelsCall() throws Exception {
+    JumpToApplicationThreadServerStreamListener listener
+        = new JumpToApplicationThreadServerStreamListener(
+            executor.getScheduledExecutorService(), stream, Context.ROOT.withCancellation());
+    ServerStreamListener mockListener = mock(ServerStreamListener.class);
+    listener.setListener(mockListener);
+
+    Throwable expectedT = new RuntimeException();
+    doThrow(expectedT).when(mockListener).messageRead(any(InputStream.class));
+    // Closing the InputStream is done by the delegated listener (generally ServerCallImpl)
+    listener.messageRead(mock(InputStream.class));
+    try {
+      executor.runDueTasks();
+      fail("Expected exception");
+    } catch (Throwable t) {
+      assertSame(expectedT, t);
+      verify(stream).close(statusCaptor.capture(), any(Metadata.class));
+      assertSame(expectedT, statusCaptor.getValue().getCause());
+    }
+  }
+
+  @Test
+  public void halfClosed_errorCancelsCall() {
+    JumpToApplicationThreadServerStreamListener listener
+        = new JumpToApplicationThreadServerStreamListener(
+            executor.getScheduledExecutorService(), stream, Context.ROOT.withCancellation());
+    ServerStreamListener mockListener = mock(ServerStreamListener.class);
+    listener.setListener(mockListener);
+
+    Throwable expectedT = new AssertionError();
+    doThrow(expectedT).when(mockListener).halfClosed();
+    listener.halfClosed();
+    try {
+      executor.runDueTasks();
+      fail("Expected exception");
+    } catch (Throwable t) {
+      assertSame(expectedT, t);
+      verify(stream).close(statusCaptor.capture(), any(Metadata.class));
+      assertSame(expectedT, statusCaptor.getValue().getCause());
+    }
+  }
+
+  @Test
+  public void halfClosed_runtimeExceptionCancelsCall() {
+    JumpToApplicationThreadServerStreamListener listener
+        = new JumpToApplicationThreadServerStreamListener(
+            executor.getScheduledExecutorService(), stream, Context.ROOT.withCancellation());
+    ServerStreamListener mockListener = mock(ServerStreamListener.class);
+    listener.setListener(mockListener);
+
+    Throwable expectedT = new RuntimeException();
+    doThrow(expectedT).when(mockListener).halfClosed();
+    listener.halfClosed();
+    try {
+      executor.runDueTasks();
+      fail("Expected exception");
+    } catch (Throwable t) {
+      assertSame(expectedT, t);
+      verify(stream).close(statusCaptor.capture(), any(Metadata.class));
+      assertSame(expectedT, statusCaptor.getValue().getCause());
+    }
+  }
+
+  @Test
+  public void onReady_errorCancelsCall() {
+    JumpToApplicationThreadServerStreamListener listener
+        = new JumpToApplicationThreadServerStreamListener(
+            executor.getScheduledExecutorService(), stream, Context.ROOT.withCancellation());
+    ServerStreamListener mockListener = mock(ServerStreamListener.class);
+    listener.setListener(mockListener);
+
+    Throwable expectedT = new AssertionError();
+    doThrow(expectedT).when(mockListener).onReady();
+    listener.onReady();
+    try {
+      executor.runDueTasks();
+      fail("Expected exception");
+    } catch (Throwable t) {
+      assertSame(expectedT, t);
+      verify(stream).close(statusCaptor.capture(), any(Metadata.class));
+      assertSame(expectedT, statusCaptor.getValue().getCause());
+    }
+  }
+
+  @Test
+  public void onReady_runtimeExceptionCancelsCall() {
+    JumpToApplicationThreadServerStreamListener listener
+        = new JumpToApplicationThreadServerStreamListener(
+            executor.getScheduledExecutorService(), stream, Context.ROOT.withCancellation());
+    ServerStreamListener mockListener = mock(ServerStreamListener.class);
+    listener.setListener(mockListener);
+
+    Throwable expectedT = new RuntimeException();
+    doThrow(expectedT).when(mockListener).onReady();
+    listener.onReady();
+    try {
+      executor.runDueTasks();
+      fail("Expected exception");
+    } catch (Throwable t) {
+      assertSame(expectedT, t);
+      verify(stream).close(statusCaptor.capture(), any(Metadata.class));
+      assertSame(expectedT, statusCaptor.getValue().getCause());
+    }
   }
 
   private void createAndStartServer(List<ServerTransportFilter> filters) throws IOException {

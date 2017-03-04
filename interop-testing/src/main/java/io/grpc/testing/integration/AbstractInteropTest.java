@@ -42,23 +42,21 @@ import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 
-import com.google.api.client.repackaged.com.google.common.base.Throwables;
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.ComputeEngineCredentials;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.auth.oauth2.OAuth2Credentials;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.common.net.HostAndPort;
 import com.google.instrumentation.stats.RpcConstants;
 import com.google.instrumentation.stats.StatsContextFactory;
 import com.google.instrumentation.stats.TagValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.EmptyProtos.Empty;
 import com.google.protobuf.MessageLite;
-
 import io.grpc.CallOptions;
 import io.grpc.ClientCall;
 import io.grpc.Grpc;
@@ -90,16 +88,6 @@ import io.grpc.testing.integration.Messages.StreamingInputCallRequest;
 import io.grpc.testing.integration.Messages.StreamingInputCallResponse;
 import io.grpc.testing.integration.Messages.StreamingOutputCallRequest;
 import io.grpc.testing.integration.Messages.StreamingOutputCallResponse;
-
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
-import org.mockito.verification.VerificationMode;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.cert.Certificate;
@@ -114,12 +102,21 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.mockito.verification.VerificationMode;
 
 /**
  * Abstract base class for all GRPC transport tests.
+ *
+ * <p> New tests should avoid using Mockito to support running on AppEngine.</p>
  */
 public abstract class AbstractInteropTest {
   /** Must be at least {@link #unaryPayloadLength()}, plus some to account for encoding overhead. */
@@ -145,16 +142,14 @@ public abstract class AbstractInteropTest {
     List<ServerInterceptor> allInterceptors = ImmutableList.<ServerInterceptor>builder()
         .add(TestUtils.recordServerCallInterceptor(serverCallCapture))
         .add(TestUtils.recordRequestHeadersInterceptor(requestHeadersCapture))
-        .add(TestUtils.echoRequestHeadersInterceptor(Util.METADATA_KEY))
-        .add(TestUtils.echoRequestMetadataInHeaders(Util.ECHO_INITIAL_METADATA_KEY))
-        .add(TestUtils.echoRequestMetadataInTrailers(Util.ECHO_TRAILING_METADATA_KEY))
+        .addAll(TestServiceImpl.interceptors())
         .add(interceptors)
         .build();
 
     builder.addService(ServerInterceptors.intercept(
         new TestServiceImpl(testServiceExecutor),
         allInterceptors));
-    builder.statsContextFactory(serverStatsFactory);
+    io.grpc.internal.TestingAccessor.setStatsContextFactory(builder, serverStatsFactory);
     try {
       server = builder.build().start();
     } catch (IOException ex) {
@@ -360,29 +355,41 @@ public abstract class AbstractInteropTest {
                 .setBody(ByteString.copyFrom(new byte[58979])))
             .build());
 
-    @SuppressWarnings("unchecked")
-    StreamObserver<StreamingOutputCallResponse> responseObserver = mock(StreamObserver.class);
+    final ArrayBlockingQueue<Object> queue = new ArrayBlockingQueue<Object>(5);
     StreamObserver<StreamingOutputCallRequest> requestObserver
-        = asyncStub.fullDuplexCall(responseObserver);
+        = asyncStub.fullDuplexCall(new StreamObserver<StreamingOutputCallResponse>() {
+          @Override
+          public void onNext(StreamingOutputCallResponse response) {
+            queue.add(response);
+          }
+
+          @Override
+          public void onError(Throwable t) {
+            queue.add(t);
+          }
+
+          @Override
+          public void onCompleted() {
+            queue.add("Completed");
+          }
+        });
     for (int i = 0; i < requests.size(); i++) {
+      assertNull(queue.peek());
       requestObserver.onNext(requests.get(i));
-      verify(responseObserver, timeout(operationTimeoutMillis())).onNext(goldenResponses.get(i));
-      verifyNoMoreInteractions(responseObserver);
+      assertEquals(goldenResponses.get(i),
+                   queue.poll(operationTimeoutMillis(), TimeUnit.MILLISECONDS));
     }
     requestObserver.onCompleted();
-    verify(responseObserver, timeout(operationTimeoutMillis())).onCompleted();
-    verifyNoMoreInteractions(responseObserver);
+    assertEquals("Completed", queue.poll(operationTimeoutMillis(), TimeUnit.MILLISECONDS));
   }
 
   @Test(timeout = 10000)
   public void emptyStream() throws Exception {
-    @SuppressWarnings("unchecked")
-    StreamObserver<StreamingOutputCallResponse> responseObserver = mock(StreamObserver.class);
+    StreamRecorder<StreamingOutputCallResponse> responseObserver = StreamRecorder.create();
     StreamObserver<StreamingOutputCallRequest> requestObserver
         = asyncStub.fullDuplexCall(responseObserver);
     requestObserver.onCompleted();
-    verify(responseObserver, timeout(operationTimeoutMillis())).onCompleted();
-    verifyNoMoreInteractions(responseObserver);
+    responseObserver.awaitCompletion(operationTimeoutMillis(), TimeUnit.MILLISECONDS);
   }
 
   @Test(timeout = 10000)
@@ -416,19 +423,16 @@ public abstract class AbstractInteropTest {
             .setBody(ByteString.copyFrom(new byte[31415])))
         .build();
 
-    @SuppressWarnings("unchecked")
-    StreamObserver<StreamingOutputCallResponse> responseObserver = mock(StreamObserver.class);
+    StreamRecorder<StreamingOutputCallResponse> responseObserver = StreamRecorder.create();
     StreamObserver<StreamingOutputCallRequest> requestObserver
         = asyncStub.fullDuplexCall(responseObserver);
     requestObserver.onNext(request);
-    verify(responseObserver, timeout(operationTimeoutMillis())).onNext(goldenResponse);
-    verifyNoMoreInteractions(responseObserver);
-
+    assertEquals(goldenResponse, responseObserver.firstValue().get());
     requestObserver.onError(new RuntimeException());
-    ArgumentCaptor<Throwable> captor = ArgumentCaptor.forClass(Throwable.class);
-    verify(responseObserver, timeout(operationTimeoutMillis())).onError(captor.capture());
-    assertEquals(Status.Code.CANCELLED, Status.fromThrowable(captor.getValue()).getCode());
-    verifyNoMoreInteractions(responseObserver);
+    responseObserver.awaitCompletion(operationTimeoutMillis(), TimeUnit.MILLISECONDS);
+    assertEquals(1, responseObserver.getValues().size());
+    assertEquals(Status.Code.CANCELLED,
+                 Status.fromThrowable(responseObserver.getError()).getCode());
 
     if (metricsExpected()) {
       assertMetrics("grpc.testing.TestService/FullDuplexCall", Status.Code.CANCELLED);
@@ -1077,11 +1081,11 @@ public abstract class AbstractInteropTest {
 
   /** Start a fullDuplexCall which the server will not respond, and verify the deadline expires. */
   @Test(timeout = 10000)
-  public void timeoutOnSleepingServer() {
+  public void timeoutOnSleepingServer() throws Exception {
     TestServiceGrpc.TestServiceStub stub = TestServiceGrpc.newStub(channel)
         .withDeadlineAfter(1, TimeUnit.MILLISECONDS);
-    @SuppressWarnings("unchecked")
-    StreamObserver<StreamingOutputCallResponse> responseObserver = mock(StreamObserver.class);
+
+    StreamRecorder<StreamingOutputCallResponse> responseObserver = StreamRecorder.create();
     StreamObserver<StreamingOutputCallRequest> requestObserver
         = stub.fullDuplexCall(responseObserver);
 
@@ -1095,11 +1099,10 @@ public abstract class AbstractInteropTest {
       // This can happen if the stream has already been terminated due to deadline exceeded.
     }
 
-    ArgumentCaptor<Throwable> captor = ArgumentCaptor.forClass(Throwable.class);
-    verify(responseObserver, timeout(operationTimeoutMillis())).onError(captor.capture());
+    responseObserver.awaitCompletion(operationTimeoutMillis(), TimeUnit.MILLISECONDS);
+    assertEquals(0, responseObserver.getValues().size());
     assertEquals(Status.DEADLINE_EXCEEDED.getCode(),
-        Status.fromThrowable(captor.getValue()).getCode());
-    verifyNoMoreInteractions(responseObserver);
+                 Status.fromThrowable(responseObserver.getError()).getCode());
 
     if (metricsExpected()) {
       assertClientMetrics("grpc.testing.TestService/FullDuplexCall", Status.Code.DEADLINE_EXCEEDED);
@@ -1241,19 +1244,22 @@ public abstract class AbstractInteropTest {
     }
   }
 
-  /** Helper for asserting remote address {@link io.grpc.ServerCall#attributes()} */
+  /** Helper for asserting remote address {@link io.grpc.ServerCall#getAttributes()} */
   protected void assertRemoteAddr(String expectedRemoteAddress) {
     TestServiceGrpc.TestServiceBlockingStub stub = TestServiceGrpc.newBlockingStub(channel)
             .withDeadlineAfter(5, TimeUnit.SECONDS);
 
     stub.unaryCall(SimpleRequest.getDefaultInstance());
 
-    HostAndPort remoteAddress = HostAndPort.fromString(serverCallCapture.get().attributes()
-            .get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR).toString());
-    assertEquals(expectedRemoteAddress, remoteAddress.getHost());
+    String inetSocketString = serverCallCapture.get().getAttributes()
+        .get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR).toString();
+    // The substring is simply host:port, even if host is IPv6 as it fails to use []. Can't use
+    // standard parsing because the string isn't following any standard.
+    String host = inetSocketString.substring(0, inetSocketString.lastIndexOf(':'));
+    assertEquals(expectedRemoteAddress, host);
   }
 
-  /** Helper for asserting TLS info in SSLSession {@link io.grpc.ServerCall#attributes()} */
+  /** Helper for asserting TLS info in SSLSession {@link io.grpc.ServerCall#getAttributes()} */
   protected void assertX500SubjectDn(String tlsInfo) {
     TestServiceGrpc.TestServiceBlockingStub stub = TestServiceGrpc.newBlockingStub(channel)
             .withDeadlineAfter(5, TimeUnit.SECONDS);
@@ -1262,7 +1268,7 @@ public abstract class AbstractInteropTest {
 
     List<Certificate> certificates = Lists.newArrayList();
     SSLSession sslSession =
-        serverCallCapture.get().attributes().get(Grpc.TRANSPORT_ATTR_SSL_SESSION);
+        serverCallCapture.get().getAttributes().get(Grpc.TRANSPORT_ATTR_SSL_SESSION);
     try {
       certificates = Arrays.asList(sslSession.getPeerCertificates());
     } catch (SSLPeerUnverifiedException e) {
@@ -1427,6 +1433,7 @@ public abstract class AbstractInteropTest {
           record.getMetricAsLongOrFail(RpcConstants.RPC_CLIENT_UNCOMPRESSED_REQUEST_BYTES));
       assertEquals(uncompressedResponsesSize,
           record.getMetricAsLongOrFail(RpcConstants.RPC_CLIENT_UNCOMPRESSED_RESPONSE_BYTES));
+      assertNotNull(record.getMetric(RpcConstants.RPC_CLIENT_SERVER_ELAPSED_TIME));
       // It's impossible to get the expected wire sizes because it may be compressed, so we just
       // check if they are recorded.
       assertNotNull(record.getMetric(RpcConstants.RPC_CLIENT_REQUEST_BYTES));

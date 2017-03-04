@@ -298,7 +298,7 @@ void GrpcWriteMethodDocComment(Printer* printer,
 }
 
 static void PrintMethodFields(
-    const ServiceDescriptor* service, std::map<string, string>* vars, 
+    const ServiceDescriptor* service, std::map<string, string>* vars,
     Printer* p, ProtoFlavor flavor) {
   p->Print("// Static method descriptors that strictly reflect the proto.\n");
   (*vars)["service_name"] = service->name();
@@ -793,7 +793,7 @@ static void PrintMethodHandlerClass(const ServiceDescriptor* service,
   }
   p->Print(
       *vars,
-      "private static class MethodHandlers<Req, Resp> implements\n"
+      "private static final class MethodHandlers<Req, Resp> implements\n"
       "    io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,\n"
       "    io.grpc.stub.ServerCalls.ServerStreamingMethod<Req, Resp>,\n"
       "    io.grpc.stub.ServerCalls.ClientStreamingMethod<Req, Resp>,\n"
@@ -801,7 +801,7 @@ static void PrintMethodHandlerClass(const ServiceDescriptor* service,
       "  private final $service_name$ serviceImpl;\n"
       "  private final int methodId;\n"
       "\n"
-      "  public MethodHandlers($service_name$ serviceImpl, int methodId) {\n"
+      "  MethodHandlers($service_name$ serviceImpl, int methodId) {\n"
       "    this.serviceImpl = serviceImpl;\n"
       "    this.methodId = methodId;\n"
       "  }\n\n");
@@ -930,21 +930,20 @@ static void PrintGetServiceDescriptorMethod(const ServiceDescriptor* service,
 
   p->Print(
       *vars,
-      "serviceDescriptor = result = new $ServiceDescriptor$(\n");
+      "serviceDescriptor = result = $ServiceDescriptor$.newBuilder(SERVICE_NAME)");
   p->Indent();
   p->Indent();
-  p->Print("SERVICE_NAME");
   if (flavor == ProtoFlavor::NORMAL) {
     p->Print(
         *vars,
-        ",\nnew $proto_descriptor_supplier$()");
+        "\n.setSchemaDescriptor(new $proto_descriptor_supplier$())");
   }
   for (int i = 0; i < service->method_count(); ++i) {
     const MethodDescriptor* method = service->method(i);
     (*vars)["method_field_name"] = MethodPropertiesFieldName(method);
-    p->Print(*vars, ",\n$method_field_name$");
+    p->Print(*vars, "\n.addMethod($method_field_name$)");
   }
-  p->Print(");\n");
+  p->Print("\n.build();\n");
   p->Outdent();
   p->Outdent();
 
@@ -1036,7 +1035,7 @@ static void PrintService(const ServiceDescriptor* service,
       "@$Generated$(\n"
       "    value = \"by gRPC proto compiler$grpc_version$\",\n"
       "    comments = \"Source: $file_name$\")\n"
-      "public class $service_class_name$ {\n\n");
+      "public final class $service_class_name$ {\n\n");
   p->Indent();
   p->Print(
       *vars,

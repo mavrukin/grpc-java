@@ -56,7 +56,6 @@ import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-
 import io.grpc.Attributes;
 import io.grpc.Grpc;
 import io.grpc.Metadata;
@@ -73,7 +72,15 @@ import io.grpc.internal.ServerStreamListener;
 import io.grpc.internal.ServerTransport;
 import io.grpc.internal.ServerTransportListener;
 import io.grpc.internal.StatsTraceContext;
-
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -86,16 +93,6 @@ import org.mockito.InOrder;
 import org.mockito.Matchers;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
-
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /** Standard unit tests for {@link ClientTransport}s and {@link ServerTransport}s. */
 @RunWith(JUnit4.class)
@@ -122,6 +119,11 @@ public abstract class AbstractTransportTest {
   protected abstract ManagedClientTransport newClientTransport(InternalServer server);
 
   /**
+   * Returns the authority string used by a client to connect to {@code server}.
+   */
+  protected abstract String testAuthority(InternalServer server);
+
+  /**
    * When non-null, will be shut down during tearDown(). However, it _must_ have been started with
    * {@code serverListener}, otherwise tearDown() can't wait for shutdown which can put following
    * tests in an indeterminate state.
@@ -129,9 +131,14 @@ public abstract class AbstractTransportTest {
   private InternalServer server;
   private ServerTransport serverTransport;
   private ManagedClientTransport client;
-  private MethodDescriptor<String, String> methodDescriptor = MethodDescriptor.create(
-      MethodDescriptor.MethodType.UNKNOWN, "service/method", StringMarshaller.INSTANCE,
-      StringMarshaller.INSTANCE);
+  private MethodDescriptor<String, String> methodDescriptor =
+      MethodDescriptor.<String, String>newBuilder()
+          .setType(MethodDescriptor.MethodType.UNKNOWN)
+          .setFullMethodName("service/method")
+          .setRequestMarshaller(StringMarshaller.INSTANCE)
+          .setResponseMarshaller(StringMarshaller.INSTANCE)
+          .build();
+
   private Metadata.Key<String> asciiKey = Metadata.Key.of(
       "ascii-key", Metadata.ASCII_STRING_MARSHALLER);
   private Metadata.Key<String> binaryKey = Metadata.Key.of(
@@ -589,8 +596,8 @@ public abstract class AbstractTransportTest {
     ServerStreamListener mockServerStreamListener = serverStreamCreation.listener;
 
     assertEquals("additional attribute value",
-        serverStream.attributes().get(ADDITIONAL_TRANSPORT_ATTR_KEY));
-    assertNotNull(serverStream.attributes().get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR));
+        serverStream.getAttributes().get(ADDITIONAL_TRANSPORT_ATTR_KEY));
+    assertNotNull(serverStream.getAttributes().get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR));
 
     serverStream.request(1);
     verify(mockClientStreamListener, timeout(TIMEOUT_MS)).onReady();
@@ -644,6 +651,25 @@ public abstract class AbstractTransportTest {
         Lists.newArrayList(metadataCaptor.getValue().getAll(asciiKey)));
     assertEquals(Lists.newArrayList(trailers.getAll(binaryKey)),
         Lists.newArrayList(metadataCaptor.getValue().getAll(binaryKey)));
+  }
+
+  @Test
+  @SuppressWarnings("deprecation")
+  public void authorityPropagation() throws Exception {
+    server.start(serverListener);
+    client = newClientTransport(server);
+    runIfNotNull(client.start(mockClientTransportListener));
+    MockServerTransportListener serverTransportListener
+            = serverListener.takeListenerOrFail(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+
+    Metadata clientHeaders = new Metadata();
+    ClientStream clientStream = client.newStream(methodDescriptor, clientHeaders);
+    clientStream.start(mockClientStreamListener);
+    StreamCreation serverStreamCreation
+            = serverTransportListener.takeStreamOrFail(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    ServerStream serverStream = serverStreamCreation.stream;
+
+    assertEquals(testAuthority(server), serverStream.getAuthority());
   }
 
   @Test

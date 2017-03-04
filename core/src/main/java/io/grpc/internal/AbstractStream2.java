@@ -34,14 +34,10 @@ package io.grpc.internal;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.annotations.VisibleForTesting;
-
 import io.grpc.Codec;
 import io.grpc.Compressor;
 import io.grpc.Decompressor;
-
 import java.io.InputStream;
-
 import javax.annotation.concurrent.GuardedBy;
 
 /**
@@ -127,6 +123,7 @@ public abstract class AbstractStream2 implements Stream {
 
     private final MessageDeframer deframer;
     private final Object onReadyLock = new Object();
+    private final StatsTraceContext statsTraceCtx;
     /**
      * The number of bytes currently queued, waiting to be sent. When this falls below
      * DEFAULT_ONREADY_THRESHOLD, {@link StreamListener#onReady()} will be called.
@@ -147,12 +144,9 @@ public abstract class AbstractStream2 implements Stream {
     private boolean deallocated;
 
     protected TransportState(int maxMessageSize, StatsTraceContext statsTraceCtx) {
-      deframer = new MessageDeframer(this, Codec.Identity.NONE, maxMessageSize, statsTraceCtx);
-    }
-
-    @VisibleForTesting
-    TransportState(MessageDeframer deframer) {
-      this.deframer = deframer;
+      this.statsTraceCtx = checkNotNull(statsTraceCtx, "statsTraceCtx");
+      deframer = new MessageDeframer(
+          this, Codec.Identity.NONE, maxMessageSize, statsTraceCtx, getClass().getName());
     }
 
     final void setMaxInboundMessageSize(int maxSize) {
@@ -220,6 +214,10 @@ public abstract class AbstractStream2 implements Stream {
       } catch (Throwable t) {
         deframeFailed(t);
       }
+    }
+
+    public final StatsTraceContext getStatsTraceContext() {
+      return statsTraceCtx;
     }
 
     private void setDecompressor(Decompressor decompressor) {

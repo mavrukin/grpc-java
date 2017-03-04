@@ -40,29 +40,31 @@ import com.google.common.base.Stopwatch;
 import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-
-import io.grpc.LoadBalancer2.PickResult;
-import io.grpc.LoadBalancer2.Subchannel;
+import io.grpc.InternalMetadata;
+import io.grpc.InternalMetadata.TrustedAsciiMarshaller;
+import io.grpc.LoadBalancer.PickResult;
+import io.grpc.LoadBalancer.Subchannel;
 import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.internal.SharedResourceHolder.Resource;
-
 import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.Charset;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-
 import javax.annotation.Nullable;
 
 /**
  * Common utilities for GRPC.
  */
 public final class GrpcUtil {
+
+  public static final Charset US_ASCII = Charset.forName("US-ASCII");
 
   // Certain production AppEngine runtimes have constraints on threading and socket handling
   // that need to be accommodated.
@@ -85,8 +87,20 @@ public final class GrpcUtil {
   /**
    * {@link io.grpc.Metadata.Key} for the accepted message encodings header.
    */
-  public static final Metadata.Key<String> MESSAGE_ACCEPT_ENCODING_KEY =
-          Metadata.Key.of(GrpcUtil.MESSAGE_ACCEPT_ENCODING, Metadata.ASCII_STRING_MARSHALLER);
+  public static final Metadata.Key<byte[]> MESSAGE_ACCEPT_ENCODING_KEY =
+      InternalMetadata.keyOf(GrpcUtil.MESSAGE_ACCEPT_ENCODING, new AcceptEncodingMarshaller());
+
+  private static final class AcceptEncodingMarshaller implements TrustedAsciiMarshaller<byte[]> {
+    @Override
+    public byte[] toAsciiString(byte[] value) {
+      return value;
+    }
+
+    @Override
+    public byte[] parseAsciiString(byte[] serialized) {
+      return serialized;
+    }
+  }
 
   /**
    * {@link io.grpc.Metadata.Key} for the Content-Type request/response header.
@@ -182,6 +196,8 @@ public final class GrpcUtil {
     }
     switch (httpStatusCode) {
       case HttpURLConnection.HTTP_BAD_REQUEST:  // 400
+      case 431: // Request Header Fields Too Large
+        // TODO(carl-mastrangelo): this should be added to the http-grpc-status-mapping.md doc.
         return Status.Code.INTERNAL;
       case HttpURLConnection.HTTP_UNAUTHORIZED:  // 401
         return Status.Code.UNAUTHENTICATED;
@@ -239,6 +255,9 @@ public final class GrpcUtil {
     }
 
     private final int code;
+    // Status is not guaranteed to be deeply immutable. Don't care though, since that's only true
+    // when there are exceptions in the Status, which is not true here.
+    @SuppressWarnings("ImmutableEnumChecker")
     private final Status status;
 
     Http2Error(int code, Status status) {

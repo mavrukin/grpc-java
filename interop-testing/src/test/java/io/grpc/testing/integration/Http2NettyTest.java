@@ -39,14 +39,12 @@ import io.grpc.testing.TestUtils;
 import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.ssl.SupportedCipherSuiteFilter;
-
+import java.io.IOException;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.IOException;
 
 /**
  * Integration tests for GRPC over HTTP2 using the Netty framework.
@@ -81,7 +79,7 @@ public class Http2NettyTest extends AbstractInteropTest {
   @Override
   protected ManagedChannel createChannel() {
     try {
-      return NettyChannelBuilder
+      NettyChannelBuilder builder = NettyChannelBuilder
           .forAddress(TestUtils.testServerAddress(getPort()))
           .flowControlWindow(65 * 1024)
           .maxInboundMessageSize(AbstractInteropTest.MAX_MESSAGE_SIZE)
@@ -91,9 +89,9 @@ public class Http2NettyTest extends AbstractInteropTest {
               .trustManager(TestUtils.loadX509Cert("ca.pem"))
               .ciphers(TestUtils.preferredTestCiphers(), SupportedCipherSuiteFilter.INSTANCE)
               .sslProvider(SslProvider.OPENSSL)
-              .build())
-          .statsContextFactory(getClientStatsFactory())
-          .build();
+              .build());
+      io.grpc.internal.TestingAccessor.setStatsContextFactory(builder, getClientStatsFactory());
+      return builder.build();
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }

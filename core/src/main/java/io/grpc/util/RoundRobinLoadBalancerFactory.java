@@ -31,23 +31,37 @@
 
 package io.grpc.util;
 
-import com.google.common.base.Supplier;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static io.grpc.ConnectivityState.IDLE;
+import static io.grpc.ConnectivityState.READY;
+import static io.grpc.ConnectivityState.TRANSIENT_FAILURE;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.grpc.Attributes;
+import io.grpc.ConnectivityStateInfo;
 import io.grpc.EquivalentAddressGroup;
 import io.grpc.ExperimentalApi;
 import io.grpc.LoadBalancer;
+import io.grpc.LoadBalancer.PickResult;
+import io.grpc.LoadBalancer.PickSubchannelArgs;
+import io.grpc.LoadBalancer.Subchannel;
+import io.grpc.LoadBalancer.SubchannelPicker;
 import io.grpc.NameResolver;
+import io.grpc.ResolvedServerInfo;
 import io.grpc.ResolvedServerInfoGroup;
 import io.grpc.Status;
-import io.grpc.TransportManager;
-import io.grpc.TransportManager.InterimTransport;
-import io.grpc.internal.RoundRobinServerList;
-
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
-
 
 /**
  * A {@link LoadBalancer} that provides round-robin load balancing mechanism over the
@@ -56,129 +70,217 @@ import javax.annotation.concurrent.GuardedBy;
  * what is then balanced across.
  */
 @ExperimentalApi("https://github.com/grpc/grpc-java/issues/1771")
-public final class RoundRobinLoadBalancerFactory extends LoadBalancer.Factory {
-
-  private static final RoundRobinLoadBalancerFactory instance = new RoundRobinLoadBalancerFactory();
+public class RoundRobinLoadBalancerFactory extends LoadBalancer.Factory {
+  private static final RoundRobinLoadBalancerFactory INSTANCE =
+      new RoundRobinLoadBalancerFactory();
 
   private RoundRobinLoadBalancerFactory() {
   }
 
   public static RoundRobinLoadBalancerFactory getInstance() {
-    return instance;
+    return INSTANCE;
   }
 
   @Override
-  public <T> LoadBalancer<T> newLoadBalancer(String serviceName, TransportManager<T> tm) {
-    return new RoundRobinLoadBalancer<T>(tm);
+  public LoadBalancer newLoadBalancer(LoadBalancer.Helper helper) {
+    return new RoundRobinLoadBalancer(helper);
   }
 
-  private static class RoundRobinLoadBalancer<T> extends LoadBalancer<T> {
-    private static final Status SHUTDOWN_STATUS =
-        Status.UNAVAILABLE.augmentDescription("RoundRobinLoadBalancer has shut down");
+  @VisibleForTesting
+  static class RoundRobinLoadBalancer extends LoadBalancer {
+    private final Helper helper;
+    private final Map<EquivalentAddressGroup, Subchannel> subchannels =
+        new HashMap<EquivalentAddressGroup, Subchannel>();
 
-    private final Object lock = new Object();
+    @VisibleForTesting
+    static final Attributes.Key<AtomicReference<ConnectivityStateInfo>> STATE_INFO =
+        Attributes.Key.of("state-info");
 
-    @GuardedBy("lock")
-    private RoundRobinServerList<T> addresses;
-    @GuardedBy("lock")
-    private InterimTransport<T> interimTransport;
-    @GuardedBy("lock")
-    private Status nameResolutionError;
-    @GuardedBy("lock")
-    private boolean closed;
-
-    private final TransportManager<T> tm;
-
-    private RoundRobinLoadBalancer(TransportManager<T> tm) {
-      this.tm = tm;
+    RoundRobinLoadBalancer(Helper helper) {
+      this.helper = checkNotNull(helper, "helper");
     }
 
     @Override
-    public T pickTransport(Attributes affinity) {
-      final RoundRobinServerList<T> addressesCopy;
-      synchronized (lock) {
-        if (closed) {
-          return tm.createFailingTransport(SHUTDOWN_STATUS);
-        }
-        if (addresses == null) {
-          if (nameResolutionError != null) {
-            return tm.createFailingTransport(nameResolutionError);
-          }
-          if (interimTransport == null) {
-            interimTransport = tm.createInterimTransport();
-          }
-          return interimTransport.transport();
-        }
-        addressesCopy = addresses;
-      }
-      return addressesCopy.getTransportForNextServer();
-    }
+    public void handleResolvedAddresses(
+        List<ResolvedServerInfoGroup> servers, Attributes attributes) {
+      Set<EquivalentAddressGroup> currentAddrs = subchannels.keySet();
+      Set<EquivalentAddressGroup> latestAddrs =
+          resolvedServerInfoGroupToEquivalentAddressGroup(servers);
+      Set<EquivalentAddressGroup> addedAddrs = setsDifference(latestAddrs, currentAddrs);
+      Set<EquivalentAddressGroup> removedAddrs = setsDifference(currentAddrs, latestAddrs);
 
-    @Override
-    public void handleResolvedAddresses(List<ResolvedServerInfoGroup> updatedServers,
-        Attributes attributes) {
-      final InterimTransport<T> savedInterimTransport;
-      final RoundRobinServerList<T> addressesCopy;
-      synchronized (lock) {
-        if (closed) {
-          return;
-        }
-        addresses = new RoundRobinServerList.Builder<T>(tm).addAll(
-            resolvedServerInfoGroupToEquivalentAddressGroup(updatedServers)).build();
-        addressesCopy = addresses;
-        nameResolutionError = null;
-        savedInterimTransport = interimTransport;
-        interimTransport = null;
+      // Create new subchannels for new addresses.
+      for (EquivalentAddressGroup addressGroup : addedAddrs) {
+        // NB(lukaszx0): we don't merge `attributes` with `subchannelAttr` because subchannel
+        // doesn't need them. They're describing the resolved server list but we're not taking
+        // any action based on this information.
+        Attributes subchannelAttrs = Attributes.newBuilder()
+            // NB(lukaszx0): because attributes are immutable we can't set new value for the key
+            // after creation but since we can mutate the values we leverge that and set
+            // AtomicReference which will allow mutating state info for given channel.
+            .set(STATE_INFO, new AtomicReference<ConnectivityStateInfo>(
+                ConnectivityStateInfo.forNonError(IDLE)))
+            .build();
+
+        Subchannel subchannel = checkNotNull(helper.createSubchannel(addressGroup, subchannelAttrs),
+            "subchannel");
+        subchannels.put(addressGroup, subchannel);
+        subchannel.requestConnection();
       }
-      if (savedInterimTransport != null) {
-        savedInterimTransport.closeWithRealTransports(new Supplier<T>() {
-            @Override public T get() {
-              return addressesCopy.getTransportForNextServer();
-            }
-          });
+
+      // Shutdown subchannels for removed addresses.
+      for (EquivalentAddressGroup addressGroup : removedAddrs) {
+        Subchannel subchannel = subchannels.remove(addressGroup);
+        subchannel.shutdown();
       }
+
+      updatePicker(getAggregatedError());
     }
 
     @Override
     public void handleNameResolutionError(Status error) {
-      InterimTransport<T> savedInterimTransport;
-      synchronized (lock) {
-        if (closed) {
-          return;
-        }
-        error = error.augmentDescription("Name resolution failed");
-        savedInterimTransport = interimTransport;
-        interimTransport = null;
-        nameResolutionError = error;
+      updatePicker(error);
+    }
+
+    @Override
+    public void handleSubchannelState(Subchannel subchannel, ConnectivityStateInfo stateInfo) {
+      if (!subchannels.containsValue(subchannel)) {
+        return;
       }
-      if (savedInterimTransport != null) {
-        savedInterimTransport.closeWithError(error);
+      if (stateInfo.getState() == IDLE) {
+        subchannel.requestConnection();
       }
+      getSubchannelStateInfoRef(subchannel).set(stateInfo);
+      updatePicker(getAggregatedError());
     }
 
     @Override
     public void shutdown() {
-      InterimTransport<T> savedInterimTransport;
-      synchronized (lock) {
-        if (closed) {
-          return;
-        }
-        closed = true;
-        savedInterimTransport = interimTransport;
-        interimTransport = null;
-      }
-      if (savedInterimTransport != null) {
-        savedInterimTransport.closeWithError(SHUTDOWN_STATUS);
+      for (Subchannel subchannel : getSubchannels()) {
+        subchannel.shutdown();
       }
     }
 
-    private static List<EquivalentAddressGroup> resolvedServerInfoGroupToEquivalentAddressGroup(
+    /**
+     * Updates picker with the list of active subchannels (state == READY).
+     */
+    private void updatePicker(@Nullable Status error) {
+      List<Subchannel> activeList = filterNonFailingSubchannels(getSubchannels());
+      helper.updatePicker(new Picker(activeList, error));
+    }
+
+    /**
+     * Filters out non-ready subchannels.
+     */
+    private static List<Subchannel> filterNonFailingSubchannels(
+        Collection<Subchannel> subchannels) {
+      List<Subchannel> readySubchannels = new ArrayList<Subchannel>(subchannels.size());
+      for (Subchannel subchannel : subchannels) {
+        if (getSubchannelStateInfoRef(subchannel).get().getState() == READY) {
+          readySubchannels.add(subchannel);
+        }
+      }
+      return readySubchannels;
+    }
+
+    /**
+     * Converts list of {@link ResolvedServerInfoGroup} to {@link EquivalentAddressGroup} set.
+     */
+    private static Set<EquivalentAddressGroup> resolvedServerInfoGroupToEquivalentAddressGroup(
         List<ResolvedServerInfoGroup> groupList) {
-      List<EquivalentAddressGroup> addrs = new ArrayList<EquivalentAddressGroup>(groupList.size());
+      Set<EquivalentAddressGroup> addrs = new HashSet<EquivalentAddressGroup>();
       for (ResolvedServerInfoGroup group : groupList) {
-        addrs.add(group.toEquivalentAddressGroup());
+        for (ResolvedServerInfo server : group.getResolvedServerInfoList()) {
+          addrs.add(new EquivalentAddressGroup(server.getAddress()));
+        }
       }
       return addrs;
+    }
+
+    /**
+     * If all subchannels are TRANSIENT_FAILURE, return the Status associated with an arbitrary
+     * subchannel otherwise, return null.
+     */
+    @Nullable
+    private Status getAggregatedError() {
+      Status status = null;
+      for (Subchannel subchannel : getSubchannels()) {
+        ConnectivityStateInfo stateInfo = getSubchannelStateInfoRef(subchannel).get();
+        if (stateInfo.getState() != TRANSIENT_FAILURE) {
+          return null;
+        }
+        status = stateInfo.getStatus();
+      }
+      return status;
+    }
+
+    @VisibleForTesting
+    Collection<Subchannel> getSubchannels() {
+      return subchannels.values();
+    }
+
+    private static AtomicReference<ConnectivityStateInfo> getSubchannelStateInfoRef(
+        Subchannel subchannel) {
+      return checkNotNull(subchannel.getAttributes().get(STATE_INFO), "STATE_INFO");
+    }
+
+    private static <T> Set<T> setsDifference(Set<T> a, Set<T> b) {
+      Set<T> aCopy = new HashSet<T>(a);
+      aCopy.removeAll(b);
+      return aCopy;
+    }
+  }
+
+  @VisibleForTesting
+  static final class Picker extends SubchannelPicker {
+    @Nullable
+    private final Status status;
+    private final List<Subchannel> list;
+    private final int size;
+    @GuardedBy("this")
+    private int index = 0;
+
+    Picker(List<Subchannel> list, @Nullable Status status) {
+      this.list = Collections.unmodifiableList(list);
+      this.size = list.size();
+      this.status = status;
+    }
+
+    @Override
+    public PickResult pickSubchannel(PickSubchannelArgs args) {
+      if (size > 0) {
+        return PickResult.withSubchannel(nextSubchannel());
+      }
+
+      if (status != null) {
+        return PickResult.withError(status);
+      }
+
+      return PickResult.withNoResult();
+    }
+
+    private Subchannel nextSubchannel() {
+      if (size == 0) {
+        throw new NoSuchElementException();
+      }
+      synchronized (this) {
+        Subchannel val = list.get(index);
+        index++;
+        if (index >= size) {
+          index = 0;
+        }
+        return val;
+      }
+    }
+
+    @VisibleForTesting
+    List<Subchannel> getList() {
+      return list;
+    }
+
+    @VisibleForTesting
+    Status getStatus() {
+      return status;
     }
   }
 }

@@ -47,7 +47,6 @@ import com.google.common.base.Charsets;
 import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Bytes;
 import com.google.instrumentation.stats.RpcConstants;
-
 import io.grpc.Codec;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -55,7 +54,12 @@ import io.grpc.internal.MessageDeframer.Listener;
 import io.grpc.internal.MessageDeframer.SizeEnforcingInputStream;
 import io.grpc.internal.testing.StatsTestUtils.FakeStatsContextFactory;
 import io.grpc.internal.testing.StatsTestUtils.MetricsRecord;
-
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.List;
+import java.util.zip.GZIPOutputStream;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -65,13 +69,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Matchers;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.List;
-import java.util.zip.GZIPOutputStream;
 
 /**
  * Tests for {@link MessageDeframer}.
@@ -88,7 +85,7 @@ public class MessageDeframerTest {
       "service/method", statsCtxFactory, GrpcUtil.STOPWATCH_SUPPLIER);
 
   private MessageDeframer deframer = new MessageDeframer(listener, Codec.Identity.NONE,
-      DEFAULT_MAX_MESSAGE_SIZE, statsTraceCtx);
+      DEFAULT_MAX_MESSAGE_SIZE, statsTraceCtx, "test");
 
   private ArgumentCaptor<InputStream> messages = ArgumentCaptor.forClass(InputStream.class);
 
@@ -208,7 +205,7 @@ public class MessageDeframerTest {
   @Test
   public void compressed() {
     deframer = new MessageDeframer(listener, new Codec.Gzip(), DEFAULT_MAX_MESSAGE_SIZE,
-        statsTraceCtx);
+        statsTraceCtx, "test");
     deframer.request(1);
 
     byte[] payload = compress(new byte[1000]);
@@ -246,7 +243,7 @@ public class MessageDeframerTest {
   public void sizeEnforcingInputStream_readByteBelowLimit() throws IOException {
     ByteArrayInputStream in = new ByteArrayInputStream("foo".getBytes(Charsets.UTF_8));
     SizeEnforcingInputStream stream =
-        new MessageDeframer.SizeEnforcingInputStream(in, 4, statsTraceCtx);
+        new MessageDeframer.SizeEnforcingInputStream(in, 4, statsTraceCtx, "test");
 
     while (stream.read() != -1) {}
 
@@ -259,7 +256,7 @@ public class MessageDeframerTest {
   public void sizeEnforcingInputStream_readByteAtLimit() throws IOException {
     ByteArrayInputStream in = new ByteArrayInputStream("foo".getBytes(Charsets.UTF_8));
     SizeEnforcingInputStream stream =
-        new MessageDeframer.SizeEnforcingInputStream(in, 3, statsTraceCtx);
+        new MessageDeframer.SizeEnforcingInputStream(in, 3, statsTraceCtx, "test");
 
     while (stream.read() != -1) {}
 
@@ -272,10 +269,10 @@ public class MessageDeframerTest {
   public void sizeEnforcingInputStream_readByteAboveLimit() throws IOException {
     ByteArrayInputStream in = new ByteArrayInputStream("foo".getBytes(Charsets.UTF_8));
     SizeEnforcingInputStream stream =
-        new MessageDeframer.SizeEnforcingInputStream(in, 2, statsTraceCtx);
+        new MessageDeframer.SizeEnforcingInputStream(in, 2, statsTraceCtx, "test");
 
     thrown.expect(StatusRuntimeException.class);
-    thrown.expectMessage("INTERNAL: Compressed frame exceeds");
+    thrown.expectMessage("INTERNAL: test: Compressed frame exceeds");
 
     while (stream.read() != -1) {}
 
@@ -287,7 +284,7 @@ public class MessageDeframerTest {
   public void sizeEnforcingInputStream_readBelowLimit() throws IOException {
     ByteArrayInputStream in = new ByteArrayInputStream("foo".getBytes(Charsets.UTF_8));
     SizeEnforcingInputStream stream =
-        new MessageDeframer.SizeEnforcingInputStream(in, 4, statsTraceCtx);
+        new MessageDeframer.SizeEnforcingInputStream(in, 4, statsTraceCtx, "test");
     byte[] buf = new byte[10];
 
     int read = stream.read(buf, 0, buf.length);
@@ -302,7 +299,7 @@ public class MessageDeframerTest {
   public void sizeEnforcingInputStream_readAtLimit() throws IOException {
     ByteArrayInputStream in = new ByteArrayInputStream("foo".getBytes(Charsets.UTF_8));
     SizeEnforcingInputStream stream =
-        new MessageDeframer.SizeEnforcingInputStream(in, 3, statsTraceCtx);
+        new MessageDeframer.SizeEnforcingInputStream(in, 3, statsTraceCtx, "test");
     byte[] buf = new byte[10];
 
     int read = stream.read(buf, 0, buf.length);
@@ -317,11 +314,11 @@ public class MessageDeframerTest {
   public void sizeEnforcingInputStream_readAboveLimit() throws IOException {
     ByteArrayInputStream in = new ByteArrayInputStream("foo".getBytes(Charsets.UTF_8));
     SizeEnforcingInputStream stream =
-        new MessageDeframer.SizeEnforcingInputStream(in, 2, statsTraceCtx);
+        new MessageDeframer.SizeEnforcingInputStream(in, 2, statsTraceCtx, "test");
     byte[] buf = new byte[10];
 
     thrown.expect(StatusRuntimeException.class);
-    thrown.expectMessage("INTERNAL: Compressed frame exceeds");
+    thrown.expectMessage("INTERNAL: test: Compressed frame exceeds");
 
     stream.read(buf, 0, buf.length);
 
@@ -333,7 +330,7 @@ public class MessageDeframerTest {
   public void sizeEnforcingInputStream_skipBelowLimit() throws IOException {
     ByteArrayInputStream in = new ByteArrayInputStream("foo".getBytes(Charsets.UTF_8));
     SizeEnforcingInputStream stream =
-        new MessageDeframer.SizeEnforcingInputStream(in, 4, statsTraceCtx);
+        new MessageDeframer.SizeEnforcingInputStream(in, 4, statsTraceCtx, "test");
 
     long skipped = stream.skip(4);
 
@@ -348,7 +345,7 @@ public class MessageDeframerTest {
   public void sizeEnforcingInputStream_skipAtLimit() throws IOException {
     ByteArrayInputStream in = new ByteArrayInputStream("foo".getBytes(Charsets.UTF_8));
     SizeEnforcingInputStream stream =
-        new MessageDeframer.SizeEnforcingInputStream(in, 3, statsTraceCtx);
+        new MessageDeframer.SizeEnforcingInputStream(in, 3, statsTraceCtx, "test");
 
     long skipped = stream.skip(4);
 
@@ -362,10 +359,10 @@ public class MessageDeframerTest {
   public void sizeEnforcingInputStream_skipAboveLimit() throws IOException {
     ByteArrayInputStream in = new ByteArrayInputStream("foo".getBytes(Charsets.UTF_8));
     SizeEnforcingInputStream stream =
-        new MessageDeframer.SizeEnforcingInputStream(in, 2, statsTraceCtx);
+        new MessageDeframer.SizeEnforcingInputStream(in, 2, statsTraceCtx, "test");
 
     thrown.expect(StatusRuntimeException.class);
-    thrown.expectMessage("INTERNAL: Compressed frame exceeds");
+    thrown.expectMessage("INTERNAL: test: Compressed frame exceeds");
 
     stream.skip(4);
 
@@ -377,7 +374,7 @@ public class MessageDeframerTest {
   public void sizeEnforcingInputStream_markReset() throws IOException {
     ByteArrayInputStream in = new ByteArrayInputStream("foo".getBytes(Charsets.UTF_8));
     SizeEnforcingInputStream stream =
-        new MessageDeframer.SizeEnforcingInputStream(in, 3, statsTraceCtx);
+        new MessageDeframer.SizeEnforcingInputStream(in, 3, statsTraceCtx, "test");
     // stream currently looks like: |foo
     stream.skip(1); // f|oo
     stream.mark(10); // any large number will work.

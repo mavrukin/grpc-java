@@ -38,7 +38,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Ticker;
-
 import io.grpc.Attributes;
 import io.grpc.Metadata;
 import io.grpc.Status;
@@ -80,12 +79,10 @@ import io.netty.handler.codec.http2.Http2Stream;
 import io.netty.handler.codec.http2.Http2StreamVisitor;
 import io.netty.handler.codec.http2.StreamBufferingEncoder;
 import io.netty.handler.logging.LogLevel;
-
 import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.Executor;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import javax.annotation.Nullable;
 
 /**
@@ -126,17 +123,19 @@ class NettyClientHandler extends AbstractNettyHandler {
     Http2Connection connection = new DefaultHttp2Connection(false);
 
     return newHandler(connection, frameReader, frameWriter, lifecycleManager, keepAliveManager,
-        flowControlWindow, ticker);
+        flowControlWindow, maxHeaderListSize, ticker);
   }
 
   @VisibleForTesting
   static NettyClientHandler newHandler(Http2Connection connection, Http2FrameReader frameReader,
       Http2FrameWriter frameWriter, ClientTransportLifecycleManager lifecycleManager,
-      KeepAliveManager keepAliveManager, int flowControlWindow, Ticker ticker) {
+      KeepAliveManager keepAliveManager, int flowControlWindow, int maxHeaderListSize,
+      Ticker ticker) {
     Preconditions.checkNotNull(connection, "connection");
     Preconditions.checkNotNull(frameReader, "frameReader");
     Preconditions.checkNotNull(lifecycleManager, "lifecycleManager");
     Preconditions.checkArgument(flowControlWindow > 0, "flowControlWindow must be positive");
+    Preconditions.checkArgument(maxHeaderListSize > 0, "maxHeaderListSize must be positive");
     Preconditions.checkNotNull(ticker, "ticker");
 
     Http2FrameLogger frameLogger = new Http2FrameLogger(LogLevel.DEBUG, NettyClientHandler.class);
@@ -157,6 +156,7 @@ class NettyClientHandler extends AbstractNettyHandler {
     settings.pushEnabled(false);
     settings.initialWindowSize(flowControlWindow);
     settings.maxConcurrentStreams(0);
+    settings.maxHeaderListSize(maxHeaderListSize);
 
     return new NettyClientHandler(decoder, encoder, settings, lifecycleManager, keepAliveManager,
         ticker);
@@ -422,6 +422,7 @@ class NettyClientHandler extends AbstractNettyHandler {
                   // was canceled via RST_STREAM.
                   Http2Stream http2Stream = connection().stream(streamId);
                   if (http2Stream != null) {
+                    stream.getStatsTraceContext().clientHeadersSent();
                     http2Stream.setProperty(streamKey, stream);
 
                     // Attach the client stream to the HTTP/2 stream object as user data.
